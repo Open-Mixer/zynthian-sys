@@ -113,13 +113,15 @@ apt-get -y autoremove
 #------------------------------------------------
 
 # System
-apt-get -y remove --purge isc-dhcp-client triggerhappy logrotate dphys-swapfile bluez
-apt-get -y install systemd avahi-daemon dhcpcd-dbus usbutils udisks2 udevil exfatprogs \
+#apt-get -y remove --purge isc-dhcp-client
+apt-get -y remove --purge triggerhappy logrotate dphys-swapfile bluez
+apt-get -y install systemd avahi-daemon usbutils udisks2 udevil exfatprogs \
 xinit xserver-xorg-video-fbdev x11-xserver-utils xinput libgl1-mesa-dri tigervnc-standalone-server \
 xfwm4 xfce4-panel xdotool cpufrequtils wpasupplicant wireless-tools iw dnsmasq \
-firmware-brcm80211 firmware-atheros firmware-realtek atmel-firmware firmware-misc-nonfree \
+firmware-brcm80211 firmware-misc-nonfree firmware-intel-graphics firmware-intel-misc \
+firmware-atheros firmware-libertas firmware-mediatek firmware-nvidia-graphics firmware-realtek \
 shiki-colors-xfwm-theme fonts-freefont-ttf x11vnc xserver-xorg-input-evdev flite espeak-ng \
-sox wiringpi plymouth plumouth-themes gldriver-test
+sox wiringpi plymouth plymouth-themes gldriver-test openssh-server
 #firmware-ralink
 
 #TODO => Configure xfwm to use shiki-colors theme in VNC
@@ -127,8 +129,7 @@ sox wiringpi plymouth plumouth-themes gldriver-test
 # CLI Tools
 apt-get -y install psmisc tree joe nano vim p7zip-full i2c-tools ddcutil evtest libts-bin \
 fbi scrot mpg123  mplayer xloadimage imagemagick fbcat abcmidi ffmpeg qjackctl mediainfo \
-xterm gpiod xfce4-terminal tigervnc-tools
-#  qmidinet
+xterm gpiod xfce4-terminal tigervnc-tools rsync unzip
 
 #------------------------------------------------
 # Development Environment
@@ -138,20 +139,22 @@ xterm gpiod xfce4-terminal tigervnc-tools
 # AV Libraries => WARNING It should be reviewed on every new debian version!!
 apt-get -y --no-install-recommends install libx11-dev libx11-xcb-dev libxcb-util-dev libxkbcommon-dev \
 libfftw3-dev libmxml-dev zlib1g-dev fluid libfltk1.3-dev libfltk1.3-compat-headers libpango1.0-dev \
-libncurses5-dev liblo-dev dssi-dev libjpeg-dev libxpm-dev libcairo2-dev libglu1-mesa-dev \
-libasound2-dev dbus-x11 jackd2 libjack-jackd2-dev a2jmidid jack-midi-clock midisport-firmware libffi-dev \
-fontconfig-config libfontconfig1-dev libxft-dev libexpat-dev libglib2.0-dev libgettextpo-dev libsqlite3-dev \
-libglibmm-2.4-dev libeigen3-dev libsamplerate-dev libarmadillo-dev libreadline-dev ttf-bitstream-vera \
-lv2-c++-tools libxi-dev libgtk2.0-dev libgtkmm-2.4-dev liblrdf-dev libboost-system-dev libzita-convolver-dev \
+libncurses-dev liblo-dev dssi-dev libjpeg-dev libxpm-dev libcairo2-dev libglu1-mesa-dev \
+libasound2-dev dbus-x11 jackd2 libjack-jackd2-dev a2jmidid jack-midi-clock libffi-dev \
+fontconfig-config libfontconfig1-dev libxft-dev libexpat1-dev libglib2.0-dev libgettextpo-dev libsqlite3-dev \
+libglibmm-2.4-dev libeigen3-dev libsamplerate0-dev libarmadillo-dev libreadline-dev ttf-bitstream-vera \
+libxi-dev libgtk2.0-dev libgtkmm-2.4-dev liblrdf0-dev libboost-system-dev libzita-convolver-dev \
 libzita-resampler-dev fonts-roboto libxcursor-dev libxinerama-dev mesa-common-dev libgl1-mesa-dev \
-libfreetype6-dev  libswscale-dev  qtbase5-dev qtdeclarative5-dev libcanberra-gtk-module '^libxcb.*-dev' \
+libfreetype-dev libswscale-dev qtbase5-dev qtdeclarative5-dev '^libxcb.*-dev' \
 libcanberra-gtk3-module libxcb-cursor-dev libgtk-3-dev libxcb-util0-dev libxcb-keysyms1-dev libxcb-xkb-dev \
 libxkbcommon-x11-dev libssl-dev libmpg123-0 libmp3lame0 libqt5svg5-dev libxrender-dev librubberband-dev \
-libavcodec59 libavformat59 libavutil57 libavformat-dev libavcodec-dev libgpiod-dev libganv-dev \
+libavcodec60 libavformat60 libavutil59 libavformat-dev libavcodec-dev libgpiod-dev \
 libsdl2-dev libibus-1.0-dev gir1.2-ibus-1.0 libdecor-0-dev libflac-dev libgbm-dev libibus-1.0-5 \
 libmpg123-dev libvorbis-dev libogg-dev libopus-dev libpulse-dev libpulse-mainloop-glib0 libsndio-dev \
-libsystemd-dev libudev-dev libxss-dev libxt-dev libxv-dev libxxf86vm-dev libglu-dev libftgl-dev libical-dev \
-libclthreads-dev libclxclient-dev libwebkit2gtk-4.0-dev libboost-python-dev libboost-thread-dev libsndfile-zyndev
+libsystemd-dev libudev-dev libxss-dev libxt-dev libxv-dev libxxf86vm-dev libftgl-dev libical-dev \
+libclthreads-dev libclxclient-dev libwebkit2gtk-4.1-dev libboost-python-dev libboost-thread-dev libsndfile-dev \
+liblilv-dev lilv-utils libsuil-dev liblo-tools nlohmann-json3-dev
+ 
 # Missed libs from previous OS versions:
 # Removed from bookworm: libavresample4
 
@@ -159,23 +162,14 @@ libclthreads-dev libclxclient-dev libwebkit2gtk-4.0-dev libboost-python-dev libb
 apt-get -y --no-install-recommends install build-essential git swig pkg-config autoconf automake premake \
 subversion gettext intltool libtool libtool-bin cmake cmake-curses-gui flex bison ngrep qt5-qmake gobjc++ \
 ruby rake xsltproc vorbis-tools zenity doxygen graphviz glslang-tools rubberband-cli docutils-common faust \
-zita-ajbridge jack-example-tools patchelf
-
-# Missed tools from previous OS versions:
-#libjack-dev-session
-#non-ntk-dev
-#libgd2-xpm-dev
+zita-ajbridge jack-example-tools patchelf qmidinet alsa-utils
 
 # Python3
-apt-get -y install python3 python3-dev python3-pip cython3 python3-cffi 2to3 python3-tk python3-dbus python3-mpmath \
+apt-get -y install python3 python3-dev python3-pip cython3 python3-cffi python3-tk python3-dbus python3-mpmath \
 python3-pil python3-pil.imagetk python3-setuptools python3-pyqt5 python3-numpy python3-evdev python3-usb \
 python3-soundfile python3-psutil python3-pexpect python3-jsonpickle python3-requests python3-mido python3-rtmidi \
-python3-mutagen python3-pam python3-bcrypt python3-pyliblo3 python3-lilv python3-alsaaudio python3-levenshtein \
-python3-websocket python3-ffmpeg python3-lgpio pyliblo-utils
-
-
-# Python2 (DEPRECATED!!)
-#apt-get -y install python-setuptools python-is-python2 python-dev-is-python2
+python3-mutagen python3-pam python3-bcrypt python3-liblo python3-lilv python3-alsaaudio python3-levenshtein \
+python3-websocket python3-pyudev python3-py7zr python-rarfile python3-lgpio pyliblo-utils python3.13-venv
 
 #------------------------------------------------
 # Create Zynthian Directory Tree
@@ -186,6 +180,7 @@ python3-websocket python3-ffmpeg python3-lgpio pyliblo-utils
 mkdir "$ZYNTHIAN_DIR"
 mkdir "$ZYNTHIAN_CONFIG_DIR"
 mkdir "$ZYNTHIAN_SW_DIR"
+mkdir "$ZYNTHIAN_SW_DIR/plugins"
 
 # Zynthian System Scripts and Config files
 cd "$ZYNTHIAN_DIR"
@@ -236,51 +231,9 @@ git clone "${ZYNTHIAN_PACKAGES_REPO}"
 #mkdir "$ZYNTHIAN_DATA_DIR/soundfonts/sf2"
 mkdir "$ZYNTHIAN_DATA_DIR/soundfonts/sfz"
 mkdir "$ZYNTHIAN_DATA_DIR/soundfonts/gig"
-mkdir "$ZYNTHIAN_MY_DATA_DIR"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/presets"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/presets/lv2"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/presets/zynaddsubfx"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/presets/zynaddsubfx/banks"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/presets/zynaddsubfx/presets"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/presets/mod-ui"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/presets/mod-ui/pedalboards"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/presets/puredata"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/presets/puredata/generative"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/presets/puredata/synths"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/presets/sysex"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/preset-favorites"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/soundfonts"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/soundfonts/sf2"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/soundfonts/sfz"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/soundfonts/gig"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/snapshots"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/snapshots/000"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/zynseq"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/capture"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files/Audio"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files/Audio/Tracks"
-ln -s "$ZYNTHIAN_MY_DATA_DIR/capture" "$ZYNTHIAN_MY_DATA_DIR/files/Audio/capture"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files/Samples"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files/Samples/Percussion"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files/Samples/One-Shot"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files/Samples/Loops"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files/Midi"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files/Midi/patterns"
-ln -s "$ZYNTHIAN_MY_DATA_DIR/capture" "$ZYNTHIAN_MY_DATA_DIR/files/Midi/capture"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files/IRs"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files/IRs/Cabinet"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files/IRs/Reverbs"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files/IRs/deconvolved"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files/Neural Models"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files/Tuning"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/files/Patterns"
-mkdir "$ZYNTHIAN_MY_DATA_DIR/collections"
 mkdir "$ZYNTHIAN_PLUGINS_DIR"
 mkdir "$ZYNTHIAN_PLUGINS_DIR/lv2"
-
-# Copy default snapshots
-cp -a $ZYNTHIAN_DATA_DIR/snapshots/* $ZYNTHIAN_MY_DATA_DIR/snapshots/000
+create_my_data_dirtree.sh
 
 #------------------------------------------------
 # Python Environment
@@ -292,7 +245,7 @@ source "$ZYNTHIAN_DIR/venv/bin/activate"
 
 pip3 install --upgrade pip
 pip3 install JACK-Client oyaml adafruit-circuitpython-neopixel-spi hwmon vcgencmd meson ninja \
-pyrubberband mididings sox scipy wavio  abletonparsing tkinterweb \
+pyrubberband mididings sox scipy wavio  abletonparsing tkinterweb ffmpeg mdoerngl moderngl_window pyopengltk \
 tornado tornadostreamform websocket-client tornado_xstatic terminado xstatic XStatic_term.js
 
 #------------------------------------------------
@@ -340,12 +293,12 @@ source $ZYNTHIAN_SYS_DIR/etc/profile.zynthian
 echo -e "\nPermitRootLogin yes" >> /etc/ssh/sshd_config
 
 # ZynthianOS version
-export ZYNTHIANOS_VERSION="2510"
+export ZYNTHIANOS_VERSION="2610"
 echo $ZYNTHIANOS_VERSION > /etc/zynthianos_version
 # Build Info
 echo "ZynthianOS VANGELIS-$ZYNTHIANOS_VERSION" > $ZYNTHIAN_DIR/build_info.txt
 echo "" >> $ZYNTHIAN_DIR/build_info.txt
-echo "Timestamp: 2025-10-15"  >> $ZYNTHIAN_DIR/build_info.txt
+echo "Timestamp: 2026-10-15"  >> $ZYNTHIAN_DIR/build_info.txt
 echo "" >> $ZYNTHIAN_DIR/build_info.txt
 echo "Built from RaspberryPiOS Trixie ($MACHINE_HW_NAME)" >> $ZYNTHIAN_DIR/build_info.txt
 
@@ -364,7 +317,7 @@ systemctl disable cron
 systemctl disable dnsmasq
 systemctl disable dhcpcd
 systemctl disable apt-daily.timer
-systemctl disable ModemManager
+#systemctl disable ModemManager
 systemctl disable glamor-test.service
 #systemctl disable wpa_supplicant
 #systemctl disable hostapd
@@ -408,7 +361,7 @@ $ZYNTHIAN_SYS_DIR/scripts/set_first_boot.sh
 $ZYNTHIAN_RECIPE_DIR/install_mod-ttymidi.sh
 
 # Install LV2 lilv library
-$ZYNTHIAN_RECIPE_DIR/install_lv2_lilv.sh
+#$ZYNTHIAN_RECIPE_DIR/install_lv2_lilv.sh
 
 # Install the LV2 C++ Tool Kit
 $ZYNTHIAN_RECIPE_DIR/install_lvtk.sh
@@ -416,7 +369,7 @@ $ZYNTHIAN_RECIPE_DIR/install_lvtk.sh
 # TODO FAILED=> ninja: build stopped: subcommand failed.
 
 # Install LV2 Jalv Plugin Host
-$ZYNTHIAN_RECIPE_DIR/install_lv2_jalv.sh
+$ZYNTHIAN_RECIPE_DIR/install_lv2_just_jalv.sh
 
 # Install Aubio Library & Tools
 $ZYNTHIAN_RECIPE_DIR/install_aubio.sh
@@ -439,7 +392,8 @@ $ZYNTHIAN_RECIPE_DIR/install_touchosc2midi.sh
 #$ZYNTHIAN_RECIPE_DIR/install_jackclient-python.sh
 
 # Install QMidiNet (MIDI over IP Multicast)
-$ZYNTHIAN_RECIPE_DIR/install_qmidinet.sh
+#$ZYNTHIAN_RECIPE_DIR/install_qmidinet.sh
+# Installed as deb package
 
 # Install jackrtpmidid (jack RTP-MIDI daemon)
 $ZYNTHIAN_RECIPE_DIR/install_jackrtpmidid.sh
@@ -454,7 +408,8 @@ $ZYNTHIAN_RECIPE_DIR/install_preset2lv2.sh
 #$ZYNTHIAN_RECIPE_DIR/install_qjackctl.sh
 
 # Install patchage
-$ZYNTHIAN_RECIPE_DIR/install_patchage.sh
+#$ZYNTHIAN_RECIPE_DIR/install_patchage.sh
+# Broken dependency with ganv-1
 
 # Install the njconnect Jack Graph Manager
 $ZYNTHIAN_RECIPE_DIR/install_njconnect.sh
@@ -486,14 +441,13 @@ $ZYNTHIAN_RECIPE_DIR/install_filebrowser.sh
 
 # Install ZynAddSubFX => from Bookworm repository instead of KXStudio
 #$ZYNTHIAN_RECIPE_DIR/install_zynaddsubfx.sh
-apt-get -y install -t bookworm zynaddsubfx
-apt-get -y install -t bookworm zynaddsubfx-lv2
+apt-get -y install -t trixie zynaddsubfx
+apt-get -y install -t trixie zynaddsubfx-lv2
 apt-mark hold zynaddsubfx
 apt-mark hold zynaddsubfx-lv2
 
 # Install Fluidsynth & SF2 SondFonts
-apt-get -y remove libsndfile-zyndev
-apt-get -y install libsndfile1-dev libinstpatch-dev
+apt-get -y install libinstpatch-dev
 apt-get -y install fluidsynth libfluidsynth-dev fluid-soundfont-gm fluid-soundfont-gs timgm6mb-soundfont
 # Stop & disable systemd fluidsynth service
 systemctl stop --user fluidsynth.service
@@ -597,8 +551,7 @@ $ZYNTHIAN_RECIPE_DIR/install_pd_extra_abl_link.sh
 # Zynthian specific packages (from zynthian repo)
 #------------------------------------------------
 
-apt-get -y remove libsndfile1-dev libfluidsynth-dev libinstpatch-dev
-apt-get -y install libsndfile-zyndev zynbluez jamulus
+#apt-get -y remove libfluidsynth-dev libinstpatch-dev
 
 #------------------------------------------------
 # Final configuration
@@ -616,8 +569,8 @@ $ZYNTHIAN_SYS_DIR/scripts/update_zynthian_sys.sh
 $ZYNTHIAN_SYS_DIR/sbin/regenerate_keys.sh
 
 # Regenerate LV2 cache
-cd $ZYNTHIAN_UI_DIR/zyngine
-python3 ./zynthian_lv2.py
+regenerate_engines_db.sh
+regenerate_lv2_presets.sh
 
 #------------------------------------------------
 # End & Cleanup
