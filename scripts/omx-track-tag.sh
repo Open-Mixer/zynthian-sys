@@ -7,8 +7,8 @@
 #
 #   omx-track-tag.sh <checkout> [<commit>] [--key <key id>] [--push <remote>]
 #
-# <commit> defaults to the checkout's vangelis. The tag message names the
-# repository, read from the URL of the remote that points at the FreeMixer fork
+# <commit> defaults to the checkout's openmixer. The tag message names the
+# repository, read from the URL of the remote that points at the OpenMixer fork
 # (or --name): a device refuses a tag naming another.
 # The key defaults to git's user.signingkey; it must be one the key file
 # pins, or devices will not take the tag.
@@ -34,11 +34,11 @@ done
 if [ -z "$name" ]; then
 	for r in fork origin $(git -C "$repo" remote); do
 		url=$(git -C "$repo" remote get-url "$r" 2>/dev/null) || continue
-		case $url in *FreeMixer/*) name=$(basename "${url%.git}"); break ;; esac
+		case $url in *Open-Mixer/*|*FreeMixer/*) name=$(basename "${url%.git}"); break ;; esac
 	done
 fi
-[ -n "$name" ] || { echo "no remote points at the FreeMixer fork: pass --name" >&2; exit 1; }
-commit=$(git -C "$repo" rev-parse --verify "${commit:-vangelis}^{commit}")
+[ -n "$name" ] || { echo "no remote points at the OpenMixer fork: pass --name" >&2; exit 1; }
+commit=$(git -C "$repo" rev-parse --verify "${commit:-openmixer}^{commit}")
 key=${key:-$(git -C "$repo" config user.signingkey || true)}
 [ -n "$key" ] || { echo "no signing key: pass --key or set user.signingkey" >&2; exit 1; }
 

@@ -2,7 +2,7 @@
 #******************************************************************************
 # scripts/omx-track-latest.sh, the device follows the latest: zynthian-ui and
 # zynthian-sys fast-forwarded to the newest signed omx-track/<YYYYMMDDXX> tag
-# on the FreeMixer fork, the omx packages upgraded from the channel. zynthian
+# on the OpenMixer fork, the omx packages upgraded from the channel. zynthian
 # is restarted only when something changed. One journal line per step. Run
 # daily by omx-track-latest.timer (enabled by update_zynthian_sys.sh).
 #
@@ -27,17 +27,18 @@
 # honour is a hold file: while HOLD_FILE exists nothing is touched.
 #******************************************************************************
 
-BRANCH=${BRANCH:-vangelis}
+BRANCH=${BRANCH:-openmixer}
 # The branch each tip-followed repository is on upstream, as upstream's own
 # scripts have it: zynthian-webconf is cloned with -b $ZYNTHIAN_WEBCONF_BRANCH
 # (the stable branch, vangelis) and update_zynthian_code.sh pulls that branch;
 # zynthian-packages is cloned with no -b (upstream has only main) and
-# update_zynthian_data.sh pulls it. zynthian-ui and zynthian-sys use $BRANCH.
+# update_zynthian_data.sh pulls it. zynthian-ui and zynthian-sys use $BRANCH,
+# the fork's own branch: its vangelis is upstream's, untouched.
 WEBCONF_BRANCH=${WEBCONF_BRANCH:-vangelis}
 PACKAGES_BRANCH=${PACKAGES_BRANCH:-main}
 TAG_PREFIX=omx-track/
 TRACK_KEYS=${TRACK_KEYS:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)/keys/track-signing-keys.asc}
-FORK_URL_PATTERN=${FORK_URL_PATTERN:-FreeMixer/}
+FORK_URL_PATTERN=${FORK_URL_PATTERN:-Open-Mixer/\|FreeMixer/}
 HOLD_FILE=${HOLD_FILE:-/run/omx-track-latest.hold}
 ZYNTHIAN_DIR=${ZYNTHIAN_DIR:-/zynthian}
 REPOS=${REPOS:-"$ZYNTHIAN_DIR/zynthian-ui $ZYNTHIAN_DIR/zynthian-sys"}
@@ -57,7 +58,8 @@ if [ -e "$HOLD_FILE" ]; then
 	exit 0
 fi
 
-# The remote that is the FreeMixer fork: "fork" when the checkout has one,
+# The remote that is the OpenMixer fork (Open-Mixer, or FreeMixer on a device
+# installed before the fork moved): "fork" when the checkout has one,
 # else whichever remote's URL names the fork
 fork_remote() {
 	local repo=$1 r

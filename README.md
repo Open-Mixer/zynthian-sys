@@ -24,6 +24,8 @@ The first `openmixer-release` is fetched by `scripts/omx-fetch-release.sh`, whic
 
 ## Following the fork
 
+This repository is a fork of [zynthian/zynthian-sys](https://github.com/zynthian/zynthian-sys). Its `vangelis` is upstream's, kept as upstream has it; the OpenMixer work is the branch `openmixer`, and that is the branch a device is on.
+
 `omx-track-latest.timer` runs `scripts/omx-track-latest.sh` every day at 04:30. It upgrades the OpenMixer packages through apt, and moves zynthian-ui and zynthian-sys to the newest `omx-track/<YYYYMMDDXX>` tag on the fork. It never takes the tip of a branch. A tag is taken only if it meets all of these:
 
 - it is signed by a key in `keys/track-signing-keys.asc` (read from the checkout the device runs);
