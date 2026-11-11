@@ -27,6 +27,8 @@ jobs:
         run: tests/omx-track-latest-check.sh
       - name: The first install takes only the signed openmixer-release
         run: tests/omx-fetch-release-check.sh
+      - name: Zynthian's plugin directories go to plugin-hostd.conf, and out of qualify.conf
+        run: tests/omx-search-paths-check.sh
       - name: The pinned keys are the ones the channel and the tags use
         run: |
           fpr() { gpg --batch --with-colons --import-options show-only --import < "$1" 2>/dev/null | awk -F: '/^pub:/ {p = 1; next} /^fpr:/ && p {print $10; p = 0}' | sort | tr '\n' ' '; }
