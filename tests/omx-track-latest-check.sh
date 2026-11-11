@@ -20,6 +20,13 @@ check() { local what=$1; shift; if "$@"; then ok "$what"; else bad "$what"; fi; 
 
 check "the script parses" bash -n "$SCRIPT"
 check "the script is executable" test -x "$SCRIPT"
+# The fork a device follows, as the script has it by default: the Open-Mixer
+# fork, and FreeMixer for a device installed before the fork moved; upstream never
+defpat=$(sed -n 's/^FORK_URL_PATTERN=\${FORK_URL_PATTERN:-\(.*\)}$/\1/p' "$SCRIPT")
+check "the default fork pattern takes the Open-Mixer fork" bash -c 'echo https://github.com/Open-Mixer/zynthian-ui.git | grep -q "$1"' _ "$defpat"
+check "and a FreeMixer remote of an older install" bash -c 'echo https://github.com/FreeMixer/zynthian-ui.git | grep -q "$1"' _ "$defpat"
+check "and never upstream" bash -c '[ -n "$1" ] && ! echo https://github.com/zynthian/zynthian-ui.git | grep -q "$1"' _ "$defpat"
+check "the default branch is the fork's own, openmixer" grep -qx 'BRANCH=${BRANCH:-openmixer}' "$SCRIPT"
 
 if command -v systemd-analyze >/dev/null; then
 	w=$(mktemp -d)
@@ -50,10 +57,10 @@ gpg --batch --quiet --passphrase '' --quick-gen-key 'Intruder <intruder@example.
 fpr() { gpg --batch --with-colons --fingerprint "$1" | awk -F: '/^fpr:/ {print $10; exit}'; }
 gpg --batch --armor --export "$(fpr release@example.org)" >"$w/pinned.asc"
 TAG=$ROOT/scripts/omx-track-tag.sh
-git -c init.defaultBranch=vangelis init -q --bare "$w/fork.git"
-git -c init.defaultBranch=vangelis init -q "$w/src"
+git -c init.defaultBranch=openmixer init -q --bare "$w/fork.git"
+git -c init.defaultBranch=openmixer init -q "$w/src"
 g() { git -C "$w/src" -c user.name=t -c user.email=t@t "$@"; }
-echo 1 >"$w/src/f"; g add f; g commit -qm one; g remote add o "$w/fork.git"; g push -q o vangelis
+echo 1 >"$w/src/f"; g add f; g commit -qm one; g remote add o "$w/fork.git"; g push -q o openmixer
 mkdir -p "$w/dev" "$w/bin"
 git clone -q "$w/fork.git" "$w/dev/zui"
 git -C "$w/dev/zui" remote rename origin fork
@@ -88,7 +95,7 @@ out=$(run)
 check "no tag on the fork: nothing moves, no restart" test "$(head_of)" = "$start" -a ! -s "$w/sc.log"
 check "no tag on the fork: the journal says so" grep -q 'no signed omx-track/ tag to take' <<<"$out"
 
-echo 2 >"$w/src/f"; g commit -qam two; g push -q o vangelis
+echo 2 >"$w/src/f"; g commit -qam two; g push -q o openmixer
 out=$(run)
 check "a commit pushed to the branch without a signed tag is not taken" test "$(head_of)" = "$start"
 
@@ -101,7 +108,7 @@ check "the journal names the tag" grep -q 'zui: .* -> .* (signed 20' <<<"$out"
 check "a clean run exits 0" test "$rc" = 0
 two=$(head_of)
 
-echo 3 >"$w/src/f"; g commit -qam three; g push -q o vangelis
+echo 3 >"$w/src/f"; g commit -qam three; g push -q o openmixer
 g tag -s -u "$(fpr intruder@example.org)" -m 'repository: zui' omx-track/2099123199; g push -q o refs/tags/omx-track/2099123199
 out=$(run); rc=$?
 check "a tag signed by another key is not taken" test "$(head_of)" = "$two"
@@ -128,7 +135,7 @@ out=$(run)
 check "with the key back, the newest good tag is taken past the forged ones" test "$(head_of)" = "$(g rev-parse HEAD)"
 
 : >"$w/sc.log"
-touch "$w/hold"; echo 4 >"$w/src/f"; g commit -qam four; g push -q o vangelis; signed_tag release@example.org
+touch "$w/hold"; echo 4 >"$w/src/f"; g commit -qam four; g push -q o openmixer; signed_tag release@example.org
 out=$(run)
 check "the hold file touches nothing" test "$(head_of)" != "$(g rev-parse HEAD)"
 rm "$w/hold"
@@ -142,7 +149,7 @@ mkdir -p "$S/z" "$S/cfg"
 # The branch each repository really has upstream. Not invented: the check right
 # below refuses these names when the real scripts say otherwise (a fixture that
 # used vangelis for zynthian-packages hid a refusal on every device)
-sbr() { case $1 in zynthian-packages) echo main ;; *) echo vangelis ;; esac; }
+sbr() { case $1 in zynthian-packages) echo main ;; zynthian-sys) echo openmixer ;; *) echo vangelis ;; esac; }
 sd=$(cd "$(dirname "$0")/.." && pwd)/scripts
 stable=$(sed -n 's/^export ZYNTHIAN_STABLE_BRANCH="\(.*\)"/\1/p' "$sd/zynthian_envars_extended.sh")
 check "fixture branches: webconf is cloned on the stable branch, as the fixture has it" test "$(grep -c -E 'clone .*-b "\$\{ZYNTHIAN_WEBCONF_BRANCH\}"' "$sd/reset_zynthian_repos.sh")" = 1 -a "$stable" = "$(sbr zynthian-webconf)"

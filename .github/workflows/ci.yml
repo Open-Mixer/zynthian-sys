@@ -7,7 +7,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [vangelis]
+    branches: [openmixer]
 
 permissions:
   contents: read
