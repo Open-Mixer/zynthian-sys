@@ -59,6 +59,10 @@ git pull
 #------------------------------------------------------------------------------
 
 # Adding soundfont & collections softlinks to FileBrowser
+sf_media_dir="$ZYNTHIAN_SW_DIR/filebrowser/root/media"
+if [[ ! -L "$sf_media_dir" ]]; then
+	ln -s "/media" "$sf_media_dir"
+fi
 sf_col_dir="$ZYNTHIAN_SW_DIR/filebrowser/root/soundfonts"
 if [[ ! -L "$sf_col_dir" ]]; then
 	ln -s "$ZYNTHIAN_DATA_DIR/soundfonts" "$sf_col_dir"
@@ -274,6 +278,25 @@ if [ ! -d "/root/.config/JV880" ]; then
   mkdir "/root/.config/JV880"
 fi
 
+# Ensure Odin2 banks directory does exist
+sbdir="/root/.local/share/odin2/Soundbanks"
+if [ ! -d "$sbdir" ]; then
+	mkdir -p "$sbdir"
+fi
+
+# Fix Helm config
+if [ ! -d "/root/.helm" ]; then
+	mkdir "/root/.helm"
+fi
+if [ ! -f "/root/.helm/Helm.config" ]; then
+echo '{
+	"synth_version": "0.9.0",
+	"day_asked_for_payment": 19989,
+	"should_ask_for_payment": false,
+	"animate_widgets": false
+}' > "/root/.helm/Helm.config"
+fi
+
 # Fix ZynAddSubFX config & presets directories
 if [ -L "/usr/local/share/zynaddsubfx" ]; then
 	rm -f "/usr/local/share/zynaddsubfx"
@@ -334,9 +357,9 @@ fi
 sed -i -- 's/a pset\:bank/a pset\:Bank/g' $ZYNTHIAN_PLUGINS_DIR/lv2-presets/*/*.ttl
 
 # Link system installed SF2 fonts
-ln -s "/usr/share/sounds/sf2/FluidR3_GM.sf2" "$ZYNTHIAN_DATA_DIR/soundfonts/sf2" || true
-ln -s "/usr/share/sounds/sf2/FluidR3_GS.sf2" "$ZYNTHIAN_DATA_DIR/soundfonts/sf2" || true
-ln -s "/usr/share/sounds/sf2/TimGM6mb.sf2" "$ZYNTHIAN_DATA_DIR/soundfonts/sf2" || true
+ln -s "/usr/share/sounds/sf2/FluidR3_GM.sf2" "$ZYNTHIAN_DATA_DIR/soundfonts/sf2" 2>/dev/null || true
+ln -s "/usr/share/sounds/sf2/FluidR3_GS.sf2" "$ZYNTHIAN_DATA_DIR/soundfonts/sf2" 2>/dev/null || true
+ln -s "/usr/share/sounds/sf2/TimGM6mb.sf2" "$ZYNTHIAN_DATA_DIR/soundfonts/sf2" 2>/dev/null || true
 
 # Link FluidPlug SF2s for using normally with FluidSynth
 cd $ZYNTHIAN_PLUGINS_DIR/lv2
