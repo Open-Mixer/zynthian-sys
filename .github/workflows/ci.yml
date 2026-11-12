@@ -1,7 +1,7 @@
 name: ci
 
-# The fork's own scripts, checked the way they run on a device: the daily
-# follower takes only signed omx-track tags, and the first install takes only
+# The fork's own scripts, checked the way they run on a device: the
+# updater takes only our signed release tags, and the first install takes only
 # the openmixer-release the channel signed.
 
 on:
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   checks:
-    name: omx-track-latest and omx-fetch-release
+    name: release tags and omx-fetch-release
     runs-on: ubuntu-latest
     timeout-minutes: 10
     container:
@@ -23,8 +23,8 @@ jobs:
       - name: Install the tools
         run: apt-get update -qq && apt-get install -y --no-install-recommends git gnupg gpgv curl ca-certificates systemd
       - uses: actions/checkout@v4
-      - name: The follower takes only signed tags
-        run: tests/omx-track-latest-check.sh
+      - name: The updater takes only our signed release tags, and never rewinds
+        run: tests/omx-release-tags-check.sh
       - name: The first install takes only the signed openmixer-release
         run: tests/omx-fetch-release-check.sh
       - name: Zynthian's plugin directories go to plugin-hostd.conf, and out of qualify.conf

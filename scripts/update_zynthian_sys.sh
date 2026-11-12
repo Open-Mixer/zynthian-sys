@@ -601,9 +601,13 @@ sed -i -e "s/#LV2_PATH#/$LV2_PATH_ESC/g" /etc/systemd/system/omx-modgui-sync.ser
 sed -i -e "s/#LV2_PATH#/$LV2_PATH_ESC/g" /etc/systemd/system/omx-complement-sync.service.d/zynthian.conf
 sed -i -e "s/#ZYNTHIAN_SYS_DIR#/$ZYNTHIAN_SYS_DIR_ESC/g" /etc/systemd/system/plugin-qualify-sync.service.d/zynthian.conf
 
-# The daily follow of vangelis and the omx packages
-sed -i -e "s/#ZYNTHIAN_DIR#/$ZYNTHIAN_DIR_ESC/g" /etc/systemd/system/omx-track-latest.service
-sed -i -e "s/#ZYNTHIAN_SYS_DIR#/$ZYNTHIAN_SYS_DIR_ESC/g" /etc/systemd/system/omx-track-latest.service
+# The daily follower is gone (update_zynthian.sh takes our release tags): a
+# device that had it loses its timer and both units
+if [ -e /etc/systemd/system/omx-track-latest.timer ] || [ -e /etc/systemd/system/omx-track-latest.service ]; then
+	echo "Removing the daily follower omx-track-latest ..."
+	systemctl disable --now omx-track-latest.timer
+	rm -f /etc/systemd/system/omx-track-latest.service /etc/systemd/system/omx-track-latest.timer
+fi
 
 # Reload Systemd scripts
 systemctl daemon-reload
@@ -615,11 +619,6 @@ udevadm control --reload-rules
 if [ "$(systemctl is-enabled usb-gadget)" != "enabled" ]; then
 	echo "Enabling USB gadget ..."
 	systemctl enable usb-gadget
-fi
-# the daily follow of vangelis and the channel is this repo's unit: only this script turns it on
-if [ "$(systemctl is-enabled omx-track-latest.timer)" != "enabled" ]; then
-	echo "Enabling the daily follow of vangelis ..."
-	systemctl enable --now omx-track-latest.timer
 fi
 # the MOD GUI sync is omx-panel's unit (installed, never enabled by the package): this image turns it on
 if ! systemctl list-unit-files omx-modgui-sync.service >/dev/null 2>&1; then

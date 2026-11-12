@@ -26,29 +26,20 @@ The first `openmixer-release` is fetched by `scripts/omx-fetch-release.sh`, whic
 
 This repository is a fork of [zynthian/zynthian-sys](https://github.com/zynthian/zynthian-sys). Its `vangelis` is upstream's, kept as upstream has it; the OpenMixer work is the branch `openmixer`, and that is the branch a device is on.
 
-`omx-track-latest.timer` runs `scripts/omx-track-latest.sh` every day at 04:30. It upgrades the OpenMixer packages through apt, and moves zynthian-ui and zynthian-sys to the newest `omx-track/<YYYYMMDDXX>` tag on the fork. It never takes the tip of a branch. A tag is taken only if it meets all of these:
+A device follows the fork with Zynthian's own updater, `scripts/update_zynthian.sh`. With `ZYNTHIAN_STABLE_TAG` set to `last`, it moves each repository to the newest release tag. Our releases are signed tags of the form `<branch>-<release>-omx.<serial>`: `vangelis-2610-omx.3` is our third release on upstream's `vangelis-2610`. The updater takes a tag only if it meets all of these:
 
-- it is signed by a key in `keys/track-signing-keys.asc` (read from the checkout the device runs);
-- it names the repository it is for;
-- it fast-forwards what the device runs.
+- it contains the tip the device runs, so an update never rewinds a device;
+- in zynthian-ui and zynthian-sys, it is one of ours, signed by a key in `keys/track-signing-keys.asc` (read from the checkout the device runs), and names the repository it is for.
 
-Anything else leaves the device where it is, with a line in the journal saying why (`journalctl -u omx-track-latest`). That covers a commit pushed without a tag, a tag signed by another key and a device with no key file. The key file changes only through a signed tag. Maintainers publish a tag with:
+Anything else leaves the repository where it is, with a line in the update log saying why. That covers an upstream tag that does not have our work yet, a commit pushed without a tag, a tag signed by another key and a device with no key file. The key file changes only through a signed tag. The repositories we do not fork take upstream's tags under the first rule alone. The same update upgrades the OpenMixer packages through apt.
+
+The updater fetches every remote and keeps only the tags of the one it fetched last, so the target script takes the fork's tags again before it chooses.
+
+`scripts/omx-release-target.sh <checkout> <branch>` prints the tag the updater takes, or the reasons there is none. Maintainers publish a release with:
 
 ```
-scripts/omx-track-tag.sh <checkout> [<commit>] --push <remote>
+scripts/omx-release-tag.sh <checkout> [<commit>] --push <remote>
 ```
-
-### What an update moves
-
-Upstream's package system needs zynthian-sys, zynthian-webconf and zynthian-packages at one level, and the installed-packages list created. So an update of zynthian-sys moves three checkouts:
-
-- zynthian-ui, to its newest signed tag, as before;
-- zynthian-sys, to its newest signed tag;
-- zynthian-webconf and zynthian-packages, to the tip of `vangelis` on the remote each checkout already has. The script changes no remote.
-
-The three of the package set move together or not at all: if one of them cannot (a fetch fails, local changes, local commits), none moves and the journal names it. When they are in place, the script creates the installed-packages list with `sbin/create_installed_packages.sh`, once, if `/zynthian/config/packages` is missing, the way `update_zynthian_data.sh` does. If that fails it is tried again on the next run. A moved webconf restarts `zynthian-webconf` along with `zynthian`.
-
-A device that already follows the fork needs nothing by hand: the next run does the one-time create step. A tester who runs `update_zynthian.sh` by hand gets the same create step from `update_zynthian_data.sh`.
 
 ## OpenMixer in this Zynthian
 
