@@ -44,7 +44,7 @@ check "the unit removal comes before the daemon reload" bash -c 'a=$(grep -n "rm
 check "the README no longer names the follower" bash -c '! grep -q "omx-track" "$1"' _ "$ROOT/README.md"
 check "the README names the tag form" grep -q -- '<branch>-<release>-omx.<serial>' "$ROOT/README.md"
 check "an update upgrades the OpenMixer packages, once" test "$(grep -c 'install_openmixer.sh --upgrade' "$UPDATER")" = 1
-check "the updater asks the target script, in every repository" grep -q 'scripts/omx-release-target.sh' "$UPDATER"
+check "the updater asks the target script, in every repository, and has it take the fork's tags again" grep -q 'scripts/omx-release-target.sh" --fetch \. "\$ZYNTHIAN_STABLE_BRANCH"' "$UPDATER"
 check "the updater no longer takes the last tag of a plain sort" bash -c '! grep -q "stags\[-1\]" "$1"' _ "$UPDATER"
 [ -x "$TARGET" ] && [ -x "$TAG" ] || { echo; echo "$fails failed (the scripts are missing: behaviour not run)"; exit 1; }
 
@@ -70,22 +70,24 @@ git clone -q "$w/upstream.git" "$w/src"
 g() { git -C "$w/src" "$@"; }
 g checkout -q -b openmixer; echo ours >"$w/src/o"; g add o; g commit -qm ours
 g remote add fork "$w/fork.git"; g push -q fork openmixer vangelis-2610
-# the device: origin is upstream, fork is the fork, on openmixer
+# the device: on openmixer, with the fork and upstream as remotes. The
+# updater's fetch (--all --prune-tags) keeps only the tags of the remote it
+# fetches last, and that is upstream here: the hard case, it drops ours
 mkdir -p "$w/z"
-git clone -q "$w/upstream.git" "$w/z/zui"
+git clone -q -o fork -b openmixer "$w/fork.git" "$w/z/zui"
 d() { git -C "$w/z/zui" "$@"; }
-d remote add fork "$w/fork.git"; d fetch -q fork; d checkout -q -b openmixer fork/openmixer
+d remote add upstream "$w/upstream.git"
 pat=$w/fork.git
 keys=$w/pinned.asc
 fetch() { d fetch -q --tags --all --prune --prune-tags --force; }
-target() { fetch; FORK_URL_PATTERN=$pat RELEASE_KEYS=$keys "$TARGET" "$w/z/zui" vangelis; }
+target() { fetch; FORK_URL_PATTERN=$pat RELEASE_KEYS=$keys "$TARGET" --fetch "$w/z/zui" vangelis; }
 commit() { echo "$1" >"$w/src/o"; g commit -qam "$1"; g push -q fork openmixer; }
 release() { "$TAG" "$w/src" --branch vangelis --name "${2:-zui}" --key "$(fpr "$1")" --push fork; }
 head_of() { d rev-parse HEAD; }
 
 out=$(target 2>"$w/err"); rc=$?
 check "no tag of ours on the fork: nothing to take" test -z "$out" -a "$rc" = 1
-check "upstream's own tag is not ours: the log says so" grep -q 'vangelis-2610 is not an OpenMixer release tag, not taken' "$w/err"
+check "no tag of ours on the fork: the log says so" grep -q "zui: no release tag to take, staying on $(d rev-parse --short HEAD)" "$w/err"
 
 commit two
 out=$(release release@example.org)
@@ -99,6 +101,7 @@ check "the target is still the tag, not the branch tip" test "$out" = vangelis-2
 
 # upstream releases vangelis-2610.1, which lacks our work and sorts after ours
 echo 2 >"$w/up/f"; u commit -qam two; u tag vangelis-2610.1; u push -q o vangelis vangelis-2610.1
+check "fixture: the updater's fetch alone drops our tag in this checkout" bash -c 'git -C "$1" fetch -q --tags --all --prune --prune-tags --force; [ "$(git -C "$1" tag -l | tr "\n" " ")" = "vangelis-2610 vangelis-2610.1 " ]' _ "$w/z/zui"
 out=$(target 2>"$w/err")
 check "an upstream tag that lacks the device's tip is refused" grep -q "vangelis-2610.1 does not contain the tip this device runs ($(d rev-parse --short HEAD)), not taken" "$w/err"
 check "and ours is still the target" test "$out" = vangelis-2610-omx.1
@@ -119,7 +122,7 @@ check "a second run changes nothing" test "$(head_of)" = "$one" -a "$(d branch -
 
 # our next releases: the serial counts, and 10 comes after 9
 for i in 2 3 4 5 6 7 8 9 10; do commit "r$i"; release release@example.org >/dev/null; done
-check "the tenth release is omx.10" g rev-parse -q --verify refs/tags/vangelis-2610-omx.10
+check "the tenth release is omx.10" git -C "$w/src" cat-file -e refs/tags/vangelis-2610-omx.10
 out=$(target 2>/dev/null)
 check "omx.10 is newer than omx.9" test "$out" = vangelis-2610-omx.10
 update >/dev/null
