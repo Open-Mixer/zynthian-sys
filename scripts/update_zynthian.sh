@@ -48,8 +48,14 @@ if [[ "$ZYNTHIAN_STABLE_TAG" == "last" ]]; then
     # Take last tag
     #git remote update origin --prune
     git fetch --tags --all --prune --prune-tags --force
-    readarray -t stags <<<$(sort <<<$(git tag -l $ZYNTHIAN_STABLE_BRANCH-*))
-    last_stag=${stags[-1]}
+    # The newest release tag that contains what this device runs; in a checkout
+    # of the OpenMixer fork, one of ours and signed. Nothing to take: it stays
+    last_stag=$("$ZYNTHIAN_SYS_DIR/scripts/omx-release-target.sh" --fetch . "$ZYNTHIAN_STABLE_BRANCH")
+    if [[ -z "$last_stag" ]]; then
+      echo -e "\tno release-tag to take: '$repo_dir' stays as it is"
+      popd > /dev/null
+      continue
+    fi
     echo -e "\tlast release-tag: $last_stag"
     # Get current branch
     branch=$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')
@@ -105,6 +111,9 @@ cd $ZYNTHIAN_SYS_DIR/scripts
 ./update_zynthian_data.sh
 ./update_zynthian_sys.sh
 ./update_zynthian_code.sh
+
+# The OpenMixer packages, to the newest in the channel
+$ZYNTHIAN_RECIPE_DIR/install_openmixer.sh --upgrade
 
 # Force restart of UI & webconf services
 set_restart_ui_flag
