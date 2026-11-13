@@ -77,17 +77,25 @@ assert_defaults() {
 	check "a sync run starts the MOD GUI sync" \
 		grep -q 'start omx-modgui-sync.service' /etc/systemd/system/plugin-qualify-sync.service.d/zynthian.conf
 
-	# qualify.conf: Zynthian's directories, and plugin-qualify-sync reads it
-	local qdirs
-	qdirs=$( (conf "$QUALIFY_CONF" lv2_path; echo; conf "$QUALIFY_CONF" lv2_extra) | tr '\n' ':' | dirs_of)
-	for d in /usr/lib/lv2 /usr/local/lib/lv2 /zynthian/zynthian-plugins/lv2 /zynthian/zynthian-my-data/plugins \
-		/zynthian/zynthian-my-data/plugins/lv2 "$PIANOTEQ_DIR"; do
-		check "qualify.conf lists $d" grep -qx "$d" <<<"$qdirs"
-	done
+	# plugin-hostd.conf: Zynthian's directories (sbin/omx-search-paths.sh); qualify.conf names it, or
+	# with a plugin-qualify before 0.20.3 holds the same lists
+	local lv2_path
+	lv2_path=$(sed -n "s/^export LV2_PATH=[\"']\{0,1\}\([^\"']*\).*/\1/p" "$ENVARS" | tail -n 1)
+	check "plugin-hostd.conf: lv2_path is Zynthian's LV2_PATH" test "$(conf "$PHD_CONF" lv2_path)" = "$lv2_path"
+	check "plugin-hostd.conf: clap_path holds /usr/local/lib/clap" grep -q '^clap_path .*/usr/local/lib/clap' "$PHD_CONF"
 	mkdir -p "$work/empty"
-	check "plugin-qualify-sync takes qualify.conf" plugin-qualify-sync --system --config "$QUALIFY_CONF" \
-		--lv2-path "$work/empty" --lv2-extra "" --clap-path "$work/empty" --pin-file "$work/p.pins" \
-		--state-file "$work/s.json" --qualification-dir "$work/q" --descriptor-dir "$work/d" --hostd-port 0
+	if dpkg --compare-versions "$(dpkg-query -W -f='${Version}' plugin-qualify)" ge 0.20.3; then
+		check "qualify.conf: hostd_conf is plugin-hostd.conf" test "$(conf "$QUALIFY_CONF" hostd_conf)" = "$PHD_CONF"
+		printf 'lv2_path %s\nclap_path %s\n' "$work/empty" "$work/empty" >"$work/phd.conf"
+		check "plugin-qualify-sync takes qualify.conf" plugin-qualify-sync --system --config "$QUALIFY_CONF" \
+			--hostd-conf "$work/phd.conf" --pin-file "$work/p.pins" \
+			--state-file "$work/s.json" --qualification-dir "$work/q" --descriptor-dir "$work/d" --hostd-port 0
+	else
+		check "qualify.conf: lv2_path is plugin-hostd's" test "$(conf "$QUALIFY_CONF" lv2_path)" = "$(conf "$PHD_CONF" lv2_path)"
+		check "plugin-qualify-sync takes qualify.conf" plugin-qualify-sync --system --config "$QUALIFY_CONF" \
+			--lv2-path "$work/empty" --lv2-extra "" --clap-path "$work/empty" --pin-file "$work/p.pins" \
+			--state-file "$work/s.json" --qualification-dir "$work/q" --descriptor-dir "$work/d" --hostd-port 0
+	fi
 
 	# plugin-hostd.conf: pins required, first-use for what is not qualified yet, the sync's pin file
 	check "plugin-hostd.conf: require_pins 1" test "$(conf "$PHD_CONF" require_pins)" = 1

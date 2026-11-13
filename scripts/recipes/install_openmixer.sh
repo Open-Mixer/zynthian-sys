@@ -232,6 +232,16 @@ if ! is_done qualify-conf && is_installed plugin-qualify; then
 	mark_done qualify-conf
 fi
 
+# Zynthian's plugin directories in plugin-hostd.conf, and qualify.conf naming
+# it once plugin-qualify reads them from there (0.20.3). Not a step done once:
+# it follows LV2_PATH and the installed plugin-qualify on every run.
+if [ -f "$PHD_CONF" ]; then
+	while IFS= read -r line; do
+		[ -n "$line" ] && change "$line"
+	done < <(ZYNTHIAN_CONFIG_DIR="$ZYNTHIAN_CONFIG_DIR" PHD_CONF="$PHD_CONF" QUALIFY_CONF="$QUALIFY_CONF" \
+		"$ZYNTHIAN_SYS_DIR/sbin/omx-search-paths.sh")
+fi
+
 # The sync's units: enabled, not started. The timer's first run is two
 # minutes after the next boot; the path unit runs it when a plugin is installed.
 if ! is_done qualify-sync && is_installed plugin-qualify; then
