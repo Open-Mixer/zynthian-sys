@@ -37,3 +37,17 @@ jobs:
           test "$(fpr keys/track-signing-keys.asc)" = "CDF862E9AD6220BF2516A03BFB7F93FCE4251A3A "
           curl -fsSL https://www.openmixer.org/deb/openmixer.asc > /tmp/served.asc
           test "$(fpr keys/openmixer-archive-keyring.asc)" = "$(fpr /tmp/served.asc)"
+
+  packages:
+    # arm64, the Pi's architecture: the channel's cell a Zynthian installs from
+    name: the recipe's packages (debian:trixie arm64)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    container:
+      image: debian:trixie
+    steps:
+      - name: Install the tools
+        run: apt-get update -qq && apt-get install -y --no-install-recommends gnupg gpgv curl ca-certificates
+      - uses: actions/checkout@v4
+      - name: The recipe's packages install from the channel and carry plugin-hostd's Python client
+        run: tests/omx-packages-check.sh

@@ -1,0 +1,9 @@
+# The OpenMixer packages a Zynthian installs, one per line: scripts/recipes/install_openmixer.sh
+# installs them and tests/default-install-check.sh checks them. python3-plugin-hostd-protocol
+# is the client zynthian-ui imports at its start; plugin-hostd does not depend on it.
+plugin-hostd
+omx-clap-host
+omx-plugins
+omx-panel
+plugin-qualify
+python3-plugin-hostd-protocol
