@@ -300,6 +300,14 @@ function configure_rbpi_boot() {
 		echo "CUSTOM CONFIG => $ZYNTHIAN_CUSTOM_CONFIG"
 		sed -i -e "s/#CUSTOM_CONFIG#/$ZYNTHIAN_CUSTOM_CONFIG/g" "$BOOT_CONFIG_FPATH"
 
+		# The memory cgroup controller, so services can carry memory limits: the last word wins
+		# over a cgroup_disable=memory put before cmdline.txt's words
+		kept=()
+		for token in $cmdline; do
+			[ "$token" = "cgroup_disable=memory" ] || kept+=("$token")
+		done
+		cmdline="${kept[*]} cgroup_enable=memory"
+
 		echo "$cmdline" > "$CMDLINE_CONFIG_FPATH"
 	fi
 
