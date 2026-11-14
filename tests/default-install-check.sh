@@ -6,9 +6,9 @@
 # again changes nothing.
 #
 # Container only: it rewrites /zynthian/config, /etc/omx and /etc/systemd.
-# Needs debian:trixie (amd64 is fine) with openmixer-release, plugin-hostd,
-# omx-clap-host, omx-plugins, omx-panel and plugin-qualify installed, and this
-# tree copied to /zynthian/zynthian-sys:
+# Needs debian:trixie (amd64 is fine) with openmixer-release and the packages
+# config/openmixer-packages lists installed, and this tree copied to
+# /zynthian/zynthian-sys:
 #
 #   podman run --rm -v $PWD:/src:ro <image> bash -c \
 #     'cp -a /src /zynthian/zynthian-sys && /zynthian/zynthian-sys/tests/default-install-check.sh'
@@ -19,7 +19,7 @@ CONFIG_DIR=/zynthian/config
 ENVARS="$CONFIG_DIR/zynthian_envars.sh"
 PHD_CONF="$CONFIG_DIR/plugin-hostd.conf"
 QUALIFY_CONF=/etc/omx/qualify.conf
-PACKAGES="openmixer-release plugin-hostd omx-clap-host omx-plugins omx-panel plugin-qualify"
+PACKAGES="openmixer-release $(sed 's/#.*//' "$SYS_DIR/config/openmixer-packages" | xargs)"
 PIANOTEQ_DIR=/zynthian/zynthian-sw/pianoteq/arm-64bit
 
 fails=0
