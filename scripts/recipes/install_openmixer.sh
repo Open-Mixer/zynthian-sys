@@ -6,8 +6,8 @@
 #
 # - the OpenMixer apt repository (package openmixer-release, which carries the
 #   signing key and one apt source per Debian release);
-# - plugin-hostd, omx-clap-host (with omx-clap-scan), omx-plugins, omx-panel
-#   and plugin-qualify;
+# - the packages config/openmixer-packages lists: plugin-hostd, omx-clap-host
+#   (with omx-clap-scan), omx-plugins, omx-panel and plugin-qualify;
 # - plugin-hostd as the mod-host of MOD-UI and as the engine the UI menus
 #   offer LV2 plugins through (ZYNTHIAN_MODHOST_BACKEND, ZYNTHIAN_PLUGIN_ENGINE);
 # - /zynthian/config/plugin-hostd.conf with the pins of the qualification sync;
@@ -20,10 +20,9 @@
 # is started, stopped or restarted: the last lines say what applies when.
 #******************************************************************************
 
-PACKAGES="plugin-hostd omx-clap-host omx-plugins omx-panel plugin-qualify"
-
 ZYNTHIAN_CONFIG_DIR=${ZYNTHIAN_CONFIG_DIR:-/zynthian/config}
 ZYNTHIAN_SYS_DIR=${ZYNTHIAN_SYS_DIR:-/zynthian/zynthian-sys}
+PACKAGES=$(sed 's/#.*//' "$ZYNTHIAN_SYS_DIR/config/openmixer-packages" | xargs)
 ENVARS="$ZYNTHIAN_CONFIG_DIR/zynthian_envars.sh"
 DONE_FILE="$ZYNTHIAN_CONFIG_DIR/openmixer-defaults"
 PHD_CONF="$ZYNTHIAN_CONFIG_DIR/plugin-hostd.conf"
