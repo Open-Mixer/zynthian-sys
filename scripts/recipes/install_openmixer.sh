@@ -6,8 +6,9 @@
 #
 # - the OpenMixer apt repository (package openmixer-release, which carries the
 #   signing key and one apt source per Debian release);
-# - the packages config/openmixer-packages lists: plugin-hostd, omx-clap-host
-#   (with omx-clap-scan), omx-plugins, omx-panel and plugin-qualify;
+# - the packages config/openmixer-packages lists: plugin-hostd and its Python
+#   client, omx-clap-host (with omx-clap-scan), omx-plugins, omx-panel and
+#   plugin-qualify;
 # - plugin-hostd as the mod-host of MOD-UI and as the engine the UI menus
 #   offer LV2 plugins through (ZYNTHIAN_MODHOST_BACKEND, ZYNTHIAN_PLUGIN_ENGINE);
 # - /zynthian/config/plugin-hostd.conf with the pins of the qualification sync;
