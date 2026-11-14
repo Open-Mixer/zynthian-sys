@@ -2,7 +2,8 @@
 #******************************************************************************
 # The packages config/openmixer-packages lists install from the channel and
 # carry what zynthian-ui imports at its start: plugin-hostd's Python client
-# (plugin_hostd_protocol). The recipe and the install check read that one
+# (plugin_hostd_protocol) and omx-contract's readers (omx_contract.scale,
+# omx_contract.catalog). The recipe and the install check read that one
 # list. The channel is added as the recipe adds it: the openmixer-release
 # that scripts/omx-fetch-release.sh checks against the pinned archive key.
 #
@@ -48,6 +49,7 @@ check "the list installs: $packages" apt-get install -y -qq --no-install-recomme
 dpkg-query -W $packages python3-plugin-hostd-protocol 2>/dev/null | sed 's/^/   | /'
 check "python3 -c 'import plugin_hostd_protocol'" python3 -c 'import plugin_hostd_protocol'
 check "its Protocol reads the installed table" python3 -c 'import plugin_hostd_protocol; plugin_hostd_protocol.Protocol()'
+check "python3 -c 'import omx_contract.scale, omx_contract.catalog'" python3 -c 'import omx_contract.scale, omx_contract.catalog'
 
 [ "$fails" = 0 ] && echo "-- all checks passed" || echo "-- $fails checks failed"
 [ "$fails" = 0 ]
