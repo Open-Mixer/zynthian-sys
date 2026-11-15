@@ -26,6 +26,8 @@ The first `openmixer-release` is fetched by `scripts/omx-fetch-release.sh`, whic
 
 This repository is a fork of [zynthian/zynthian-sys](https://github.com/zynthian/zynthian-sys). Its `vangelis` is upstream's, kept as upstream has it; the OpenMixer work is the branch `openmixer`, and that is the branch a device is on.
 
+PRs merge into `openmixer`, not the default branch: close the issue by hand at merge.
+
 A device follows the fork with Zynthian's own updater, `scripts/update_zynthian.sh`. With `ZYNTHIAN_STABLE_TAG` set to `last`, it moves each repository to the newest release tag. Our releases are signed tags of the form `<branch>-<release>-omx.<serial>`: `vangelis-2610-omx.3` is our third release on upstream's `vangelis-2610`. The updater takes a tag only if it meets all of these:
 
 - it contains the tip the device runs, so an update never rewinds a device;
