@@ -75,19 +75,14 @@ check "no declared line, no start" test $rc = 1
 check "and it says why" grep -q "declares no readiness line" <<<"$out"
 cleanup
 
-echo "-- the protocol file where libplugin-hostd-protocol0 installs it"
-mkdir -p "$work/new"
-echo '{"readiness": {"daemon_line": "new-home is up"}}' >"$work/new/plugin-hostd.json"
-places="$work/new/plugin-hostd.json $work/protocol.json"
-out=$(PHD_PROTOCOL= PHD_PROTOCOL_PLACES="$places" FAKE_LINE="new-home is up" READY_TIMEOUT=2 \
-	env_run env PHD_PROTOCOL= PHD_PROTOCOL_PLACES="$places" PORT=59555 FEEDBACK_PORT=59556 "$BACKEND" start 2>&1); rc=$?
-check "plugin-hostd.json in the new home is read first" test $rc = 0
+echo "-- the protocol file is read in one place"
+echo '{"readiness": {"daemon_line": "old-home is up"}}' >"$work/protocol.json.old"
+out=$(PHD_PROTOCOL= PHD_PROTOCOL_PLACES="$work/protocol.json.old" FAKE_LINE="old-home is up" READY_TIMEOUT=2 \
+	env_run env PHD_PROTOCOL= PHD_PROTOCOL_PLACES="$work/protocol.json.old" PORT=59555 FEEDBACK_PORT=59556 "$BACKEND" start 2>&1); rc=$?
+check "a protocol file in another place is not looked for" test $rc = 1
 cleanup
-rm "$work/new/plugin-hostd.json"
-out=$(FAKE_LINE="fake-hostd is up" READY_TIMEOUT=2 \
-	env_run env PHD_PROTOCOL= PHD_PROTOCOL_PLACES="$places" PORT=59555 FEEDBACK_PORT=59556 "$BACKEND" start 2>&1); rc=$?
-check "and protocol.json of a plugin-hostd before 0.16.0 when the new one is not there" test $rc = 0
-cleanup
+check "the script names no place but plugin-hostd-protocol's plugin-hostd.json" \
+	sh -c "! grep -q -e PHD_PROTOCOL_PLACES -e 'plugin-hostd/protocol.json' '$START' && grep -q '/usr/share/plugin-hostd-protocol/plugin-hostd.json' '$START'"
 
 echo "-- plugin-hostd-start.sh, as the UI engine runs it"
 pid=$(FAKE_LINE="fake-hostd is up" env_run "$START" 59557 2>/dev/null); rc=$?
