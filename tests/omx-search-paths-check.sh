@@ -1,11 +1,10 @@
 #!/bin/bash
 #******************************************************************************
 # sbin/omx-search-paths.sh writes Zynthian's plugin directories into
-# plugin-hostd's settings, and moves the search path lines out of
-# qualify.conf once plugin-qualify reads them from plugin-hostd (0.20.3 and
-# later); with an older plugin-qualify, qualify.conf holds the same lists.
-# Run on copies of the files, with the installed plugin-qualify's version
-# given, so it runs anywhere.
+# plugin-hostd's settings and has qualify.conf name that file. It does not
+# read or rewrite any search path line qualify.conf holds, and does not look
+# at which plugin-qualify is installed. Run on copies of the files, so it runs
+# anywhere.
 #
 #   tests/omx-search-paths-check.sh
 #******************************************************************************
@@ -41,48 +40,41 @@ setup() {
 	EOF
 }
 run() {
-	env -u LV2_PATH ZYNTHIAN_CONFIG_DIR="$work/d" QUALIFY_CONF="$work/d/qualify.conf" QUALIFY_VERSION="$1" bash "$SCRIPT"
+	env -u LV2_PATH ZYNTHIAN_CONFIG_DIR="$work/d" QUALIFY_CONF="$work/d/qualify.conf" bash "$SCRIPT"
 }
-active_moved() { grep -E '^(lv2_path|lv2_extra|clap_path|clap_extra)([[:space:]]|$)' "$work/d/qualify.conf"; }
-
-# plugin-qualify 0.20.3: the lines move to plugin-hostd.conf
+# the run writes plugin-hostd.conf and names it in qualify.conf, and nothing else
 setup
-out=$(run 0.20.3-1); rc=$?
+out=$(run); rc=$?
 check "the run succeeds ($rc): $out" test "$rc" = 0
 check "plugin-hostd.conf: lv2_path is Zynthian's LV2_PATH" test "$(conf "$work/d/plugin-hostd.conf" lv2_path)" = "$LV2"
-check "plugin-hostd.conf: clap_path is Zynthian's CLAP directories, then the one clap_extra added" \
-	test "$(conf "$work/d/plugin-hostd.conf" clap_path)" = "$CLAP:/opt/mine/clap"
-check "plugin-hostd.conf: lv2_extra holds what qualify.conf named and LV2_PATH lacks ($(conf "$work/d/plugin-hostd.conf" lv2_extra))" \
-	test "$(conf "$work/d/plugin-hostd.conf" lv2_extra)" = /zynthian/zynthian-data/presets/lv2:/opt/mine/lv2
-check "qualify.conf: no line plugin-qualify 0.20.3 refuses is left: $(active_moved)" test -z "$(active_moved)"
-check "qualify.conf: hostd_conf names plugin-hostd.conf" test "$(conf "$work/d/qualify.conf" hostd_conf)" = "$work/d/plugin-hostd.conf"
-check "qualify.conf: each moved line is kept as a comment saying where it went" \
-	test "$(grep -c "^# moved to $work/d/plugin-hostd.conf" "$work/d/qualify.conf")" = 4
+check "plugin-hostd.conf: clap_path is Zynthian's CLAP directories" test "$(conf "$work/d/plugin-hostd.conf" clap_path)" = "$CLAP"
+check "plugin-hostd.conf: no lv2_extra carried over from qualify.conf" test -z "$(conf "$work/d/plugin-hostd.conf" lv2_extra)"
+check "qualify.conf: hostd_conf names plugin-hostd.conf, with no plugin-qualify version known" \
+	test "$(conf "$work/d/qualify.conf" hostd_conf)" = "$work/d/plugin-hostd.conf"
+check "qualify.conf: its search path lines are left as they were" \
+	test "$(grep -cE '^(lv2_path|lv2_extra|clap_path|clap_extra)[[:space:]]' "$work/d/qualify.conf")" = 4
+check "qualify.conf: nothing is commented out as moved" test "$(grep -c '^# moved' "$work/d/qualify.conf")" = 0
 check "qualify.conf: its other settings stay" test "$(conf "$work/d/qualify.conf" pin_file)" = /var/lib/omx/qualified.pins
 check "plugin-hostd.conf: its other settings stay" test "$(conf "$work/d/plugin-hostd.conf" lv2_worker)" = omx-clap-host
 cp "$work/d/plugin-hostd.conf" "$work/phd.1"; cp "$work/d/qualify.conf" "$work/q.1"
-out=$(run 0.20.3-1)
+out=$(run)
 check "a second run changes nothing and says nothing: $out" \
 	sh -c "[ -z '$out' ] && cmp -s '$work/phd.1' '$work/d/plugin-hostd.conf' && cmp -s '$work/q.1' '$work/d/qualify.conf'"
+check "the script holds no plugin-qualify version branch" sh -c "! grep -q -e QUALIFY_VERSION -e compare-versions -e MOVED_KEYS '$SCRIPT'"
 
-# plugin-qualify 0.20.2: qualify.conf keeps its own lists, the same as plugin-hostd's
+# a plugin-qualify version in the environment changes nothing: no older-plugin-qualify way
 setup
-run 0.20.2-1 >/dev/null
-check "older plugin-qualify: lv2_path is plugin-hostd's" test "$(conf "$work/d/qualify.conf" lv2_path)" = "$(conf "$work/d/plugin-hostd.conf" lv2_path)"
-check "older plugin-qualify: no lv2_extra plugin-hostd does not search" test -z "$(conf "$work/d/qualify.conf" lv2_extra)"
-check "older plugin-qualify: clap_path is plugin-hostd's, clap_extra empty" \
-	sh -c "[ '$(conf "$work/d/qualify.conf" clap_path)' = '$(conf "$work/d/plugin-hostd.conf" clap_path)' ] && [ -z '$(conf "$work/d/qualify.conf" clap_extra)' ]"
-check "older plugin-qualify: no hostd_conf, a key it would refuse" test -z "$(grep '^hostd_conf' "$work/d/qualify.conf")"
-
-# then plugin-qualify 0.20.3 arrives: the next run moves the lines
-run 0.20.3-1 >/dev/null
-check "after the upgrade the lines move: $(active_moved)" test -z "$(active_moved)"
+QUALIFY_VERSION=0.20.2-1 run >/dev/null
+check "an older plugin-qualify is not special: qualify.conf's lv2_path line is left" \
+	test "$(conf "$work/d/qualify.conf" lv2_path)" = "$LV2:/zynthian/zynthian-data/presets/lv2"
+check "and its lv2_extra and clap_extra lines stay" \
+	sh -c "[ -n '$(conf "$work/d/qualify.conf" lv2_extra)' ] && [ '$(conf "$work/d/qualify.conf" clap_extra)' = /opt/mine/clap ]"
 
 # no LV2_PATH: nothing written
 setup
 cp "$work/d/plugin-hostd.conf" "$work/phd.0"
 : >"$work/d/zynthian_envars.sh"
-run 0.20.3-1 >/dev/null 2>&1; rc=$?
+run >/dev/null 2>&1; rc=$?
 check "no LV2_PATH: exit 1 and plugin-hostd.conf untouched ($rc)" sh -c "[ $rc = 1 ] && cmp -s '$work/phd.0' '$work/d/plugin-hostd.conf'"
 
 # the template qualify.conf names no search path: the script is the one writer
