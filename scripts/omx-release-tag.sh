@@ -45,7 +45,7 @@ done
 if [ -z "$name" ]; then
 	for r in fork origin $(git -C "$repo" remote); do
 		url=$(git -C "$repo" remote get-url "$r" 2>/dev/null) || continue
-		case $url in *Open-Mixer/*|*FreeMixer/*) name=$(basename "${url%.git}"); break ;; esac
+		case $url in *Open-Mixer/*) name=$(basename "${url%.git}"); break ;; esac
 	done
 fi
 [ -n "$name" ] || { echo "no remote points at the OpenMixer fork: pass --name" >&2; exit 1; }
