@@ -113,13 +113,19 @@ assert_defaults() {
 	check "a boot puts a deleted pin file back (tmpfiles.d)" test -f "$(conf "$PHD_CONF" pin_file)"
 
 	# envars, in the config and in the defaults a new config is made from
+	check "config: ZYNTHIAN_MODHOST_BACKEND=plugin-hostd" test "$(envar "$ENVARS" ZYNTHIAN_MODHOST_BACKEND)" = plugin-hostd
 	check "config: ZYNTHIAN_PLUGIN_ENGINE=plugin-hostd" test "$(envar "$ENVARS" ZYNTHIAN_PLUGIN_ENGINE)" = plugin-hostd
+	check "defaults: ZYNTHIAN_MODHOST_BACKEND=plugin-hostd" \
+		test "$(envar "$SYS_DIR/scripts/zynthian_envars.sh" ZYNTHIAN_MODHOST_BACKEND)" = plugin-hostd
 	check "defaults: ZYNTHIAN_PLUGIN_ENGINE=plugin-hostd" \
 		test "$(envar "$SYS_DIR/scripts/zynthian_envars.sh" ZYNTHIAN_PLUGIN_ENGINE)" = plugin-hostd
-	check "defaults: ZYNTHIAN_PLUGIN_HOSTD_PORT is declared" \
+	check "defaults: ZYNTHIAN_PLUGIN_HOSTD_PORT is declared, next to ZYNTHIAN_MODHOST_BACKEND" \
 		test "$(envar "$SYS_DIR/scripts/zynthian_envars.sh" ZYNTHIAN_PLUGIN_HOSTD_PORT)" = 5570
-	check "defaults: no ZYNTHIAN_MODHOST_BACKEND, plugin-hostd is the only backend" \
-		bash -c '! grep -q ZYNTHIAN_MODHOST_BACKEND "$1"' _ "$SYS_DIR/scripts/zynthian_envars.sh"
+	check "mod-host-backend.sh picks plugin-hostd" \
+		grep -qx 'setting: plugin-hostd' <(ZYNTHIAN_CONFIG_DIR=$CONFIG_DIR "$SYS_DIR/sbin/mod-host-backend.sh" status)
+	sed '/ZYNTHIAN_MODHOST_BACKEND/d' "$ENVARS" >"$work/no-backend/zynthian_envars.sh"
+	check "mod-host-backend.sh picks plugin-hostd when the variable is unset" \
+		grep -qx 'setting: plugin-hostd' <(ZYNTHIAN_CONFIG_DIR=$work/no-backend "$SYS_DIR/sbin/mod-host-backend.sh" status)
 
 	# LV2_PATH: what MOD-UI's plugin-hostd searches, and the sync searches it in the same order
 	local lv2 unit
@@ -168,7 +174,7 @@ assert_idempotent() {
 
 reset() {
 	rm -rf "$CONFIG_DIR"
-	mkdir -p "$CONFIG_DIR"
+	mkdir -p "$CONFIG_DIR" "$work/no-backend"
 	cp "$work/qualify.conf.package" "$QUALIFY_CONF"
 	rm -rf /etc/systemd/system/plugin-qualify-sync.path.d /etc/systemd/system/plugin-qualify-sync.service.d \
 		/etc/tmpfiles.d/omx-qualified-pins.conf /var/lib/omx/qualified.pins

@@ -54,7 +54,7 @@ check "the packages step is marked done" grep -qx packages "$work/config/openmix
 
 echo "== a config that already exists is left as it is"
 fresh
-printf 'export ZYNTHIAN_UI_COLOR_BG="#123456"\nexport LV2_PATH="/usr/lib/lv2"\n' >"$work/config/zynthian_envars.sh"
+printf 'export ZYNTHIAN_MODHOST_BACKEND="jack_load"\nexport LV2_PATH="/usr/lib/lv2"\n' >"$work/config/zynthian_envars.sh"
 printf 'lv2_worker auto\nrequire_pins 0\nstate_root /run/plugin-hostd\n' >"$work/config/plugin-hostd.conf"
 cp "$work/config/plugin-hostd.conf" "$work/phd.before"
 recipe
@@ -63,7 +63,7 @@ check "require_pins 0 is not changed to 1" test "$(conf "$work/config/plugin-hos
 check "no key is added to plugin-hostd.conf (only the plugin directories, written by omx-search-paths.sh)" \
 	test "$(grep -c -e '^pin_mode' -e '^pin_file' -e '^qualification_dir' -e '^descriptor_dir' "$work/config/plugin-hostd.conf")" = 0
 check "ZYNTHIAN_PLUGIN_ENGINE is not added to zynthian_envars.sh" bash -c '! grep -q ZYNTHIAN_PLUGIN_ENGINE "$1"' _ "$work/config/zynthian_envars.sh"
-check "a variable the user set is not rewritten" grep -qx 'export ZYNTHIAN_UI_COLOR_BG="#123456"' "$work/config/zynthian_envars.sh"
+check "ZYNTHIAN_MODHOST_BACKEND is not rewritten" grep -qx 'export ZYNTHIAN_MODHOST_BACKEND="jack_load"' "$work/config/zynthian_envars.sh"
 check "no envars step is recorded" bash -c '! grep -qx envars "$1"' _ "$work/config/openmixer-defaults"
 check "the report says no restart is pending" bash -c '! grep -q "were not restarted" "$1"' _ "$work/recipe.log"
 

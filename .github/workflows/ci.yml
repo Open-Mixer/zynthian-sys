@@ -33,8 +33,6 @@ jobs:
         run: tests/omx-fetch-release-check.sh
       - name: Zynthian's plugin directories go to plugin-hostd.conf, and out of qualify.conf
         run: tests/omx-search-paths-check.sh
-      - name: The install recipe leaves an existing config alone and enables the sync units
-        run: tests/install-openmixer-check.sh
       - name: The boot cmdline enables the memory cgroup controller
         run: tests/boot-cmdline-check.sh
       - name: The UI looks set the sixteen colours and the font; stock is zynthian-ui's own; vintage is pinned

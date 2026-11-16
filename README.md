@@ -48,7 +48,7 @@ scripts/omx-release-tag.sh <checkout> [<commit>] --push <remote>
 On this fork OpenMixer is part of the default install; in the series offered upstream each part stays off until a user switches it on. No file that configures JACK changes: Zynthian stays on jackd. How to install and use it, and where it stands: <https://openmixer.org/docs/zynthian>. A new image built from this fork, and an existing Zynthian on its next `update_zynthian_sys.sh` (or `update_system_image.sh`), end up with:
 
 - the OpenMixer repository and plugin-hostd, omx-clap-host (with omx-clap-scan), omx-plugins, omx-panel and plugin-qualify;
-- plugin-hostd as the mod-host of MOD-UI and as the engine the UI menus offer LV2 plugins through (`ZYNTHIAN_PLUGIN_ENGINE=plugin-hostd`);
+- plugin-hostd as the mod-host of MOD-UI (`ZYNTHIAN_MODHOST_BACKEND=plugin-hostd`) and as the engine the UI menus offer LV2 plugins through (`ZYNTHIAN_PLUGIN_ENGINE=plugin-hostd`);
 - `/zynthian/config/plugin-hostd.conf` with `require_pins 1`, `pin_mode first-use`, `pin_file /var/lib/omx/qualified.pins` and `lv2_worker omx-clap-host`: a plugin the sync qualified in-process shares a worker and chains, one it refused loads only when the user chooses it, alone in a worker of its own, and one it has not reached yet still loads, in a worker of its own. A plugin our host cannot run is reported with its reason and never handed to mod-host or jalv;
 - the qualification sync: `plugin-qualify-sync.timer` runs it two minutes after every boot at the lowest CPU and disk priority, and `plugin-qualify-sync.path` when a plugin directory changes. A plugin whose files are unchanged is skipped, so only the first boot after install (or after new plugins) takes long. Zynthian's plugin directories (its `LV2_PATH`, and `/usr/local/lib/clap:/usr/lib/clap`) are written into `/zynthian/config/plugin-hostd.conf` by `sbin/omx-search-paths.sh`, at every update and before every sync; the sync scans what `plugin-hostd --search-path` prints for that file, which `/etc/omx/qualify.conf` names as `hostd_conf`. Each run starts `omx-modgui-sync.service`.
 
@@ -57,6 +57,7 @@ All of it is done by `scripts/recipes/install_openmixer.sh`, which the setup scr
 To go back, as root:
 
 ```
+/zynthian/zynthian-sys/sbin/set_modhost_backend.sh jack_load      # MOD-UI on mod-host in JACK
 sed -i 's/^export ZYNTHIAN_PLUGIN_ENGINE=.*/export ZYNTHIAN_PLUGIN_ENGINE="jalv"/' /zynthian/config/zynthian_envars.sh
 systemctl disable --now plugin-qualify-sync.timer plugin-qualify-sync.path
 sed -i 's/^require_pins .*/require_pins 0/' /zynthian/config/plugin-hostd.conf
@@ -68,9 +69,19 @@ How the published image is built from upstream's release: [docs/openmixer-image.
 
 ## plugin-hostd as the mod-host of MOD-UI
 
-MOD-UI talks to a mod-host on port 5555, and that is plugin-hostd on ports 5555 and 5556, each plugin in a worker process of its own, so a plugin that crashes takes only its own worker down. It runs LV2 and CLAP plugins.
+MOD-UI talks to a mod-host on port 5555. `ZYNTHIAN_MODHOST_BACKEND` in `zynthian_envars.sh` picks what answers there:
 
-`mod-host.service` starts it with `sbin/plugin-hostd-start.sh <port> [<feedback port>]`, the one place a plugin-hostd is started on this image: the UI's plugin-hostd engine starts its own daemon, on `ZYNTHIAN_PLUGIN_HOSTD_PORT`, with it too. The script leaves a daemon already running on the port as it is, and otherwise returns once the daemon prints the line it declares for ready in its protocol file (`/usr/share/plugin-hostd-protocol/plugin-hostd.json`); stopping the unit stops the daemon and its workers. plugin-hostd reads `/zynthian/config/plugin-hostd.conf`, copied from `config/plugin-hostd.conf` once; that file explains each setting.
+- `plugin-hostd` (the default): plugin-hostd on ports 5555 and 5556, each plugin in a worker process of its own, so a plugin that crashes takes only its own worker down. It runs LV2 and CLAP plugins. Without plugin-hostd installed, `jack_load` is used.
+- `jack_load`: mod-host loaded into JACK as an internal client, as before.
+
+`mod-host.service` runs `sbin/mod-host-backend.sh`, which honours the setting, removes the other backend before it starts and on stop removes whichever one runs. It starts plugin-hostd with `sbin/plugin-hostd-start.sh <port> [<feedback port>]`, the one place a plugin-hostd is started on this image: the UI's plugin-hostd engine starts its own daemon, on `ZYNTHIAN_PLUGIN_HOSTD_PORT`, with it too. The script leaves a daemon already running on the port as it is, and otherwise returns once the daemon prints the line it declares for ready in its protocol file (`/usr/share/plugin-hostd-protocol/plugin-hostd.json`). To switch, as root:
+
+```
+/zynthian/zynthian-sys/sbin/set_modhost_backend.sh plugin-hostd
+/zynthian/zynthian-sys/sbin/set_modhost_backend.sh jack_load
+```
+
+It stops MOD-UI and mod-host, writes the setting and starts MOD-UI again if it was running, saying each step. Without an argument it prints the setting and what runs. plugin-hostd reads `/zynthian/config/plugin-hostd.conf`, copied from `config/plugin-hostd.conf` once; that file explains each setting. `tests/modhost-backend-check.sh` checks the plugin-hostd backend end to end.
 
 ## MOD GUIs from omx-panel
 
