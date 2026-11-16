@@ -9,9 +9,11 @@
 # - the packages config/openmixer-packages lists: plugin-hostd and its Python
 #   client, omx-clap-host (with omx-clap-scan), omx-plugins, omx-panel and
 #   plugin-qualify;
-# - plugin-hostd as the mod-host of MOD-UI and as the engine the UI menus
-#   offer LV2 plugins through (ZYNTHIAN_MODHOST_BACKEND, ZYNTHIAN_PLUGIN_ENGINE);
-# - /zynthian/config/plugin-hostd.conf with the pins of the qualification sync;
+# - ZYNTHIAN_PLUGIN_ENGINE and ZYNTHIAN_MODHOST_BACKEND (plugin-hostd) added to an
+#   existing zynthian_envars.sh;
+# - /zynthian/config/plugin-hostd.conf, from config/plugin-hostd.conf, when the
+#   device has none (the envars come from zynthian_envars.sh's defaults, which
+#   update_zynthian_sys.sh copies when the device has no config);
 # - the qualification sync (plugin-qualify-sync.timer and .path) with
 #   Zynthian's plugin directories in /etc/omx/qualify.conf.
 # - the OpenMixer vintage UI look and its font (fonts-inter), once; a colour
@@ -20,9 +22,9 @@
 #   sbin/omx-modgui-look.sh after a package update, and the look again now.
 #
 # Each of these is done once: the steps done are listed in
-# $ZYNTHIAN_CONFIG_DIR/openmixer-defaults, so a later run leaves a setting
-# changed by hand as it is. --upgrade also upgrades the packages. No service
-# is started, stopped or restarted: the last lines say what applies when.
+# $ZYNTHIAN_CONFIG_DIR/openmixer-defaults. A config that exists is not changed.
+# --upgrade also upgrades the packages. No service is started, stopped or
+# restarted: the last lines say what applies when.
 #******************************************************************************
 
 ZYNTHIAN_CONFIG_DIR=${ZYNTHIAN_CONFIG_DIR:-/zynthian/config}
@@ -32,7 +34,6 @@ ENVARS="$ZYNTHIAN_CONFIG_DIR/zynthian_envars.sh"
 DONE_FILE="$ZYNTHIAN_CONFIG_DIR/openmixer-defaults"
 PHD_CONF="$ZYNTHIAN_CONFIG_DIR/plugin-hostd.conf"
 QUALIFY_CONF=${QUALIFY_CONF:-/etc/omx/qualify.conf}
-SYSTEMD_UNIT_DIR=${SYSTEMD_UNIT_DIR:-/usr/lib/systemd/system}
 SYNC_UNITS="plugin-qualify-sync.timer plugin-qualify-sync.path"
 APT_OPTS=(-y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
 
@@ -153,9 +154,9 @@ fi
 
 mkdir -p "$ZYNTHIAN_CONFIG_DIR"
 
-# The envars: zynthian_envars.sh's defaults carry both; this is for a config
-# made before them. Without the file (a new image) update_zynthian_sys.sh
-# copies the defaults and runs this again.
+# The envars of a stock device: an existing zynthian_envars.sh gets the plugin
+# engine and the MOD-UI backend, once. A device with no such file gets them from
+# zynthian_envars.sh's defaults, which update_zynthian_sys.sh copies.
 modhost_changed=0
 engine_changed=0
 if ! is_done envars && [ -f "$ENVARS" ] && command -v plugin-hostd >/dev/null; then
@@ -174,36 +175,16 @@ if ! is_done envars && [ -f "$ENVARS" ] && command -v plugin-hostd >/dev/null; t
 	mark_done envars
 fi
 
-# plugin-hostd.conf: pins required, from the sync's pin file
+# plugin-hostd.conf: a device that has none gets the one this tree ships; one
+# that exists is not changed here.
 phd_changed=0
 if ! is_done hostd-conf && command -v plugin-hostd >/dev/null; then
 	if [ ! -f "$PHD_CONF" ]; then
 		cp "$ZYNTHIAN_SYS_DIR/config/plugin-hostd.conf" "$PHD_CONF"
 		change "wrote $PHD_CONF"
 		phd_changed=1
-	else
-		for kv in "require_pins 1" "pin_mode first-use" "pin_file /var/lib/omx/qualified.pins" \
-			"qualification_dir /var/lib/omx/qualification" "descriptor_dir /var/lib/omx/descriptors"; do
-			key=${kv%% *}
-			value=${kv#* }
-			old=$(conf_get "$PHD_CONF" "$key")
-			if [ "$old" != "$value" ]; then
-				conf_set "$PHD_CONF" "$key" "$value"
-				change "$key ${old:-unset} -> $value in $PHD_CONF"
-				phd_changed=1
-			fi
-		done
 	fi
 	mark_done hostd-conf
-fi
-
-# lv2_worker auto handed what the LV2 adapter refuses to mod-host; plugin-hostd
-# 0.19.0 removed it and does not start with it. Not a step done once: a copy
-# that still holds it is changed on every run. mod-host chosen by hand stays.
-if command -v plugin-hostd >/dev/null && [ -f "$PHD_CONF" ] && [ "$(conf_get "$PHD_CONF" lv2_worker)" = auto ]; then
-	conf_set "$PHD_CONF" lv2_worker omx-clap-host
-	change "lv2_worker auto -> omx-clap-host in $PHD_CONF: a plugin the LV2 adapter refuses is reported, never handed to mod-host"
-	phd_changed=1
 fi
 
 # The pin file must exist for plugin-hostd to start: empty until the first sync.
@@ -237,8 +218,7 @@ if ! is_done qualify-conf && is_installed plugin-qualify; then
 fi
 
 # Zynthian's plugin directories in plugin-hostd.conf, and qualify.conf naming
-# it once plugin-qualify reads them from there (0.20.3). Not a step done once:
-# it follows LV2_PATH and the installed plugin-qualify on every run.
+# it. Not a step done once: it follows LV2_PATH on every run.
 if [ -f "$PHD_CONF" ]; then
 	while IFS= read -r line; do
 		[ -n "$line" ] && change "$line"
@@ -249,16 +229,12 @@ fi
 # The sync's units: enabled, not started. The timer's first run is two
 # minutes after the next boot; the path unit runs it when a plugin is installed.
 if ! is_done qualify-sync && is_installed plugin-qualify; then
-	if [ -f "$SYSTEMD_UNIT_DIR/plugin-qualify-sync.timer" ]; then
-		for u in $SYNC_UNITS; do
-			if [ "$(systemctl is-enabled "$u" 2>/dev/null)" != enabled ]; then
-				systemctl enable "$u" >/dev/null 2>&1 && change "enabled $u" || { note "could not enable $u"; failed=1; }
-			fi
-		done
-		[ "$failed" = 0 ] && mark_done qualify-sync
-	else
-		note "plugin-qualify $(version_of plugin-qualify) has no qualification sync yet: the next run after an upgrade enables it"
-	fi
+	for u in $SYNC_UNITS; do
+		if [ "$(systemctl is-enabled "$u" 2>/dev/null)" != enabled ]; then
+			systemctl enable "$u" >/dev/null 2>&1 && change "enabled $u" || { note "could not enable $u"; failed=1; }
+		fi
+	done
+	[ "$failed" = 0 ] && mark_done qualify-sync
 fi
 
 # The UI look: OpenMixer vintage (config/ui-looks/openmixer-vintage.sh, the

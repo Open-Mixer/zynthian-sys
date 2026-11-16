@@ -23,7 +23,7 @@
 # key. Maintainers make the tag with scripts/omx-release-tag.sh.
 #******************************************************************************
 
-FORK_URL_PATTERN=${FORK_URL_PATTERN:-Open-Mixer/\|FreeMixer/}
+FORK_URL_PATTERN=${FORK_URL_PATTERN:-Open-Mixer/}
 RELEASE_KEYS=${RELEASE_KEYS:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)/keys/track-signing-keys.asc}
 GIT=${GIT:-git}
 

@@ -7,7 +7,7 @@
 # checkout of the fork only one of ours, signed by a pinned key. An upstream
 # tag that lacks our tip, a tag signed by another key, a lightweight tag, a tag
 # naming another repository and a device with no pinned key all leave the
-# device where it is. The daily follower omx-track-latest is gone.
+# device where it is. The daily follower omx-track-latest is gone, and the update script knows nothing of it.
 #
 #   tests/omx-release-tags-check.sh
 #******************************************************************************
@@ -29,18 +29,19 @@ check "the tag script parses" bash -n "$TAG"
 check "the tag script is executable" test -x "$TAG"
 defpat=$(sed -n 's/^FORK_URL_PATTERN=\${FORK_URL_PATTERN:-\(.*\)}$/\1/p' "$TARGET" 2>/dev/null)
 check "the default fork pattern takes the Open-Mixer fork" bash -c 'echo https://github.com/Open-Mixer/zynthian-ui.git | grep -q "$1"' _ "$defpat"
-check "and a FreeMixer remote of an older install" bash -c 'echo https://github.com/FreeMixer/zynthian-ui.git | grep -q "$1"' _ "$defpat"
+check "and not a FreeMixer remote: the organisation's old name is not the fork" bash -c '! echo https://github.com/FreeMixer/zynthian-ui.git | grep -q "$1"' _ "$defpat"
+check "the tag script does not take a FreeMixer remote for the fork" bash -c '! grep -q FreeMixer "$1"' _ "$TAG"
 check "and never upstream" bash -c '[ -n "$1" ] && ! echo https://github.com/zynthian/zynthian-ui.git | grep -q "$1"' _ "$defpat"
 
-# The daily follower is gone, and a device that had it loses its units
+# The daily follower is gone
 for f in scripts/omx-track-latest.sh scripts/omx-track-tag.sh etc/systemd/omx-track-latest.service \
 	etc/systemd/omx-track-latest.timer tests/omx-track-latest-check.sh; do
 	check "$f is deleted" test ! -e "$ROOT/$f"
 done
 check "the update script no longer enables the timer" bash -c '! grep -q "enable --now omx-track-latest" "$1"' _ "$ROOT/scripts/update_zynthian_sys.sh"
-check "the update script stops the timer a device still has" grep -q 'systemctl disable --now omx-track-latest.timer' "$ROOT/scripts/update_zynthian_sys.sh"
-check "and removes both units" grep -q 'rm -f /etc/systemd/system/omx-track-latest.service /etc/systemd/system/omx-track-latest.timer' "$ROOT/scripts/update_zynthian_sys.sh"
-check "the unit removal comes before the daemon reload" bash -c 'a=$(grep -n "rm -f /etc/systemd/system/omx-track-latest.service" "$1" | cut -d: -f1); b=$(grep -n "^systemctl daemon-reload" "$1" | tail -1 | cut -d: -f1); [ -n "$a" ] && [ -n "$b" ] && [ "$a" -lt "$b" ]' _ "$ROOT/scripts/update_zynthian_sys.sh"
+check "the update script does not look for the follower's units" bash -c '! grep -q "omx-track-latest" "$1"' _ "$ROOT/scripts/update_zynthian_sys.sh"
+check "the update script enables the MOD GUI sync without a version message" bash -c '! grep -q "omx-panel 0.4.0" "$1"' _ "$ROOT/scripts/update_zynthian_sys.sh"
+check "and the install recipe says nothing of a plugin-qualify with no sync" bash -c '! grep -q "no qualification sync" "$1"' _ "$ROOT/scripts/recipes/install_openmixer.sh"
 check "the README no longer names the follower" bash -c '! grep -q "omx-track" "$1"' _ "$ROOT/README.md"
 check "the README names the tag form" grep -q -- '<branch>-<release>-omx.<serial>' "$ROOT/README.md"
 check "an update upgrades the OpenMixer packages, once" test "$(grep -c 'install_openmixer.sh --upgrade' "$UPDATER")" = 1
