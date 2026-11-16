@@ -69,6 +69,12 @@ assert_defaults() {
 	check "an apt source names the OpenMixer repository" \
 		grep -Rqs 'openmixer.org/deb' /etc/apt/sources.list.d/
 
+	check "fonts-inter is installed" dpkg-query -W fonts-inter
+	check "fontconfig knows Inter, the family the look names" bash -c 'fc-list : family | grep -qx "Inter"'
+	check "the UI look is OpenMixer vintage" bash -c \
+		'grep -qx "$(grep "^export ZYNTHIAN_UI_COLOR_BG=" "$1")" "$2"' _ \
+		"$SYS_DIR/config/ui-looks/openmixer-vintage.sh" "$ENVARS"
+
 	check "plugin-qualify-sync.timer is enabled" test "$(systemctl is-enabled plugin-qualify-sync.timer)" = enabled
 	check "plugin-qualify-sync.path is enabled" test "$(systemctl is-enabled plugin-qualify-sync.path)" = enabled
 	check "omx-modgui-sync is enabled" test "$(systemctl is-enabled omx-modgui-sync)" = enabled
