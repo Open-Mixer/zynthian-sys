@@ -41,8 +41,7 @@ card), loop-mounts both partitions and, in a `systemd-nspawn` of the root file s
 1. points `/zynthian/zynthian-sys` and `/zynthian/zynthian-ui` at this fork and Open-Mixer's zynthian-ui, branch
    `openmixer`, so later updates on the device follow the forks;
 2. runs `update_zynthian_sys.sh`: this fork's system files, `config.txt` from its template, and
-   `scripts/recipes/install_openmixer.sh` (the OpenMixer repository and packages, `ZYNTHIAN_MODHOST_BACKEND` and
-   `ZYNTHIAN_PLUGIN_ENGINE` set to plugin-hostd, `plugin-hostd.conf`, `qualify.conf`, the qualification sync enabled);
+   `scripts/recipes/install_openmixer.sh` (the OpenMixer repository and packages, `plugin-hostd.conf`, `qualify.conf`, the qualification sync enabled);
 3. runs `update_zynthian_code.sh` (the UI fork pulled, zyncoder and zynlibs rebuilt), then `install_openmixer.sh --upgrade`;
 4. clears the apt caches and lists, the logs and root's history, and adds the fork commits to `/zynthian/build_info.txt`.
 
@@ -65,8 +64,7 @@ after boot.
 
 - `tools/zynthian/image-inspect.sh` (no root): `/zynthian/build_info.txt` names upstream's build and the fork commits; the
   OpenMixer packages have versions; `zynthian-sys` and `zynthian-ui` are on `openmixer` at the forks' commits.
-- `/zynthian/config/zynthian_envars.sh` in the image sets `ZYNTHIAN_MODHOST_BACKEND="plugin-hostd"` and
-  `ZYNTHIAN_PLUGIN_ENGINE="plugin-hostd"`, and `/zynthian/config/openmixer-defaults` lists the steps done.
+- `/zynthian/config/zynthian_envars.sh` in the image sets `ZYNTHIAN_PLUGIN_ENGINE="plugin-hostd"`, and `/zynthian/config/openmixer-defaults` lists the steps done.
 - `tools/zynthian/image-first-boot-qemu.sh` boots the image under full emulation (with a generic arm64 kernel, since the
   image's own has no virtio block driver) to check the first boot's userland; the first boot on a Pi is checked by hand:
   the UI comes up, MOD-UI runs on plugin-hostd, a chain with an LV2 and a CLAP plugin sounds, and the qualification sync

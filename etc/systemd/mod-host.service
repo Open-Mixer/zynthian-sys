@@ -4,18 +4,16 @@ After=jack2.service
 Requires=jack2.service
 
 [Service]
-# ZYNTHIAN_MODHOST_BACKEND in zynthian_envars.sh picks what runs on port 5555:
-# plugin-hostd (the default) or jack_load (mod-host as a JACK internal client).
-# sbin/mod-host-backend.sh documents both. jack_load leaves no process behind,
-# so the unit stays active after it exits; plugin-hostd stays as the main process.
+# MOD-UI's mod-host is plugin-hostd on ports 5555 and 5556, started by
+# sbin/plugin-hostd-start.sh, which returns once the daemon is ready. The daemon
+# stays in the unit's control group; stopping the unit sends it SIGTERM, which
+# stops every worker and then the daemon.
 Type=forking
 RemainAfterExit=true
 Environment=LV2_PATH=#LV2_PATH#
-Environment=JACKD_BIN_PATH=#JACKD_BIN_PATH#
 Environment=ZYNTHIAN_CONFIG_DIR=#ZYNTHIAN_CONFIG_DIR#
 Environment=ZYNTHIAN_SYS_DIR=#ZYNTHIAN_SYS_DIR#
-ExecStart=#ZYNTHIAN_SYS_DIR#/sbin/mod-host-backend.sh start
-ExecStop=#ZYNTHIAN_SYS_DIR#/sbin/mod-host-backend.sh stop
+ExecStart=#ZYNTHIAN_SYS_DIR#/sbin/plugin-hostd-start.sh 5555 5556
 TimeoutStartSec=20
 
 [Install]
