@@ -9,6 +9,8 @@
 # - the packages config/openmixer-packages lists: plugin-hostd and its Python
 #   client, omx-clap-host (with omx-clap-scan), omx-plugins, omx-panel and
 #   plugin-qualify;
+# - ZYNTHIAN_PLUGIN_ENGINE and ZYNTHIAN_MODHOST_BACKEND (plugin-hostd) added to an
+#   existing zynthian_envars.sh;
 # - /zynthian/config/plugin-hostd.conf, from config/plugin-hostd.conf, when the
 #   device has none (the envars come from zynthian_envars.sh's defaults, which
 #   update_zynthian_sys.sh copies when the device has no config);
@@ -152,10 +154,29 @@ fi
 
 mkdir -p "$ZYNTHIAN_CONFIG_DIR"
 
-# plugin-hostd.conf: a device that has none gets the one this tree ships. The
-# envars come from zynthian_envars.sh's defaults, which update_zynthian_sys.sh
-# copies when the device has no config; a config or plugin-hostd.conf that
-# exists is not changed here.
+# The envars of a stock device: an existing zynthian_envars.sh gets the plugin
+# engine and the MOD-UI backend, once. A device with no such file gets them from
+# zynthian_envars.sh's defaults, which update_zynthian_sys.sh copies.
+modhost_changed=0
+engine_changed=0
+if ! is_done envars && [ -f "$ENVARS" ] && command -v plugin-hostd >/dev/null; then
+	old=$(envar_get ZYNTHIAN_MODHOST_BACKEND)
+	if [ "$old" != plugin-hostd ]; then
+		envar_set ZYNTHIAN_MODHOST_BACKEND plugin-hostd
+		change "ZYNTHIAN_MODHOST_BACKEND ${old:-unset} -> plugin-hostd in $ENVARS"
+		modhost_changed=1
+	fi
+	old=$(envar_get ZYNTHIAN_PLUGIN_ENGINE)
+	if [ -z "$old" ]; then
+		envar_set ZYNTHIAN_PLUGIN_ENGINE plugin-hostd
+		change "ZYNTHIAN_PLUGIN_ENGINE unset -> plugin-hostd in $ENVARS"
+		engine_changed=1
+	fi
+	mark_done envars
+fi
+
+# plugin-hostd.conf: a device that has none gets the one this tree ships; one
+# that exists is not changed here.
 phd_changed=0
 if ! is_done hostd-conf && command -v plugin-hostd >/dev/null; then
 	if [ ! -f "$PHD_CONF" ]; then
@@ -269,10 +290,14 @@ else
 	for c in "${changes[@]}"; do echo "  $c"; done
 fi
 for n in "${notes[@]}"; do echo "  note: $n"; done
-if [ "$phd_changed" = 1 ]; then
+if [ "$modhost_changed" = 1 ] || [ "$phd_changed" = 1 ]; then
 	echo "  mod-host and mod-ui were not restarted: the change applies at their next start"
+	echo "  (a reboot, or now: $ZYNTHIAN_SYS_DIR/sbin/set_modhost_backend.sh plugin-hostd)"
 fi
 if [ "$look_changed" = 1 ]; then
 	echo "  zynthian was not restarted: the UI look applies from its next start"
+fi
+if [ "$engine_changed" = 1 ]; then
+	echo "  zynthian was not restarted: the menus offer plugin-hostd from its next start"
 fi
 exit "$failed"
