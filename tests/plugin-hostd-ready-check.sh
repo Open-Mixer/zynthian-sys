@@ -107,5 +107,16 @@ chmod +x "$work/sbin/plugin-hostd-start.sh"
 BACKEND="$work/sbin/mod-host-backend.sh" start >/dev/null
 check "with MOD-UI's ports" grep -qxF "59555 59556" "$work/start-args"
 
+echo "-- MOD-UI's backend is plugin-hostd and nothing else"
+ROOT=$HERE/..
+check "mod-host-backend.sh is gone" test ! -e "$SBIN/mod-host-backend.sh"
+check "set_modhost_backend.sh is gone" test ! -e "$SBIN/set_modhost_backend.sh"
+check "tests/modhost-backend-check.sh is gone" test ! -e "$HERE/modhost-backend-check.sh"
+check "mod-host.service runs plugin-hostd-start.sh on MOD-UI's ports" \
+	grep -qx 'ExecStart=#ZYNTHIAN_SYS_DIR#/sbin/plugin-hostd-start.sh 5555 5556' "$ROOT/etc/systemd/mod-host.service"
+check "the unit does not run mod-host-backend.sh" bash -c '! grep -q mod-host-backend "$1"' _ "$ROOT/etc/systemd/mod-host.service"
+check "no jack_load backend is named in the unit, the sbin scripts or the envars" \
+	bash -c '! grep -rq -e jack_load -e ZYNTHIAN_MODHOST_BACKEND "$@"' _ "$ROOT/etc/systemd/mod-host.service" "$SBIN" "$ROOT/scripts/zynthian_envars.sh"
+
 echo "$fails failed"
 exit $((fails > 0))
