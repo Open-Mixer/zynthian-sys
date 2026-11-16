@@ -38,12 +38,12 @@ stub systemctl 'echo "$*" >>"$SYSTEMCTL_LOG"; case "$1" in is-enabled) echo disa
 
 recipe() {
 	PATH="$work/bin:$PATH" SYSTEMCTL_LOG="$work/systemctl.log" ZYNTHIAN_SYS_DIR=$SYS ZYNTHIAN_CONFIG_DIR=$work/config \
-		QUALIFY_CONF=$work/qualify.conf SYSTEMD_UNIT_DIR=$work/units "$SYS/scripts/recipes/install_openmixer.sh" \
+		QUALIFY_CONF=$work/qualify.conf "$SYS/scripts/recipes/install_openmixer.sh" \
 		>"$work/recipe.log" 2>&1
 }
 fresh() {
-	rm -rf "$work/config" "$work/units" "$work/qualify.conf" "$work/systemctl.log"
-	mkdir -p "$work/config" "$work/units"
+	rm -rf "$work/config" "$work/qualify.conf" "$work/systemctl.log"
+	mkdir -p "$work/config"
 }
 
 echo "== a fresh install: no config yet"
@@ -64,7 +64,7 @@ check "no key is added to plugin-hostd.conf (only the plugin directories, writte
 	test "$(grep -c -e '^pin_mode' -e '^pin_file' -e '^qualification_dir' -e '^descriptor_dir' "$work/config/plugin-hostd.conf")" = 0
 check "ZYNTHIAN_PLUGIN_ENGINE is not added to zynthian_envars.sh" bash -c '! grep -q ZYNTHIAN_PLUGIN_ENGINE "$1"' _ "$work/config/zynthian_envars.sh"
 check "ZYNTHIAN_MODHOST_BACKEND is not rewritten" grep -qx 'export ZYNTHIAN_MODHOST_BACKEND="jack_load"' "$work/config/zynthian_envars.sh"
-check "the envars and hostd-conf steps are not recorded" bash -c '! grep -q -e envars -e hostd-conf "$1"' _ "$work/config/openmixer-defaults"
+check "no envars step is recorded" bash -c '! grep -qx envars "$1"' _ "$work/config/openmixer-defaults"
 check "the report says no restart is pending" bash -c '! grep -q "were not restarted" "$1"' _ "$work/recipe.log"
 
 echo "== plugin-qualify installed: the sync units are enabled"

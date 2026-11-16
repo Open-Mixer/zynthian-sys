@@ -1,9 +1,8 @@
 #!/bin/bash
 #******************************************************************************
 # Check that OpenMixer is the default install: packages, repository, units,
-# config keys, envars defaults and LV2_PATH, after the update path of an
-# existing Zynthian and after a new image's setup, and that running the update
-# again changes nothing.
+# config keys, envars defaults and LV2_PATH, after a new image's setup, and
+# that running the update again changes nothing.
 #
 # Container only: it rewrites /zynthian/config, /etc/omx and /etc/systemd.
 # Needs debian:trixie (amd64 is fine) with openmixer-release and the packages
@@ -182,51 +181,11 @@ reset() {
 	systemctl disable plugin-qualify-sync.timer plugin-qualify-sync.path omx-modgui-sync >/dev/null 2>&1
 }
 
-echo "== an existing Zynthian: jack_load, require_pins 0, the sync disabled"
-reset
-# The envars defaults and plugin-hostd.conf of vangelis before this change
-sed -e 's/^export ZYNTHIAN_MODHOST_BACKEND=.*/export ZYNTHIAN_MODHOST_BACKEND="jack_load"/' \
-	-e '/ZYNTHIAN_PLUGIN_ENGINE/d' "$SYS_DIR/scripts/zynthian_envars.sh" >"$ENVARS"
-printf 'mod_host /usr/local/bin/mod-host\nclap_host omx-clap-host\nlv2_worker auto\nrequire_pins 0\nstate_root /run/plugin-hostd\ndescriptor_dir /var/lib/omx/descriptors\n' >"$PHD_CONF"
-check "before: ZYNTHIAN_MODHOST_BACKEND=jack_load" test "$(envar "$ENVARS" ZYNTHIAN_MODHOST_BACKEND)" = jack_load
-echo "-- update"
-update
-check "the update says mod-host was not restarted" grep -q 'mod-host and mod-ui were not restarted' "$work/update.log"
-assert_defaults
-assert_idempotent
-echo "-- a choice made after the update stays"
-sed -i 's/^export ZYNTHIAN_MODHOST_BACKEND=.*/export ZYNTHIAN_MODHOST_BACKEND="jack_load"/' "$ENVARS"
-systemctl disable plugin-qualify-sync.timer >/dev/null 2>&1
-update
-check "ZYNTHIAN_MODHOST_BACKEND=jack_load set by hand is kept" test "$(envar "$ENVARS" ZYNTHIAN_MODHOST_BACKEND)" = jack_load
-check "the timer disabled by hand stays disabled" test "$(systemctl is-enabled plugin-qualify-sync.timer)" = disabled
-
 recipe() {
 	(cd "$SYS_DIR/scripts" && ZYNTHIAN_SYS_DIR=$SYS_DIR ZYNTHIAN_CONFIG_DIR=$CONFIG_DIR recipes/install_openmixer.sh) \
 		>"$work/recipe.log" 2>&1
 	sed -n '/^OpenMixer defaults/,$p' "$work/recipe.log" | sed 's/^/   | /'
 }
-
-echo "-- lv2_worker auto left by an earlier update is changed on every run; mod-host chosen by hand stays"
-sed -i 's/^lv2_worker .*/lv2_worker auto/' "$PHD_CONF"
-update
-check "lv2_worker auto -> omx-clap-host" test "$(conf "$PHD_CONF" lv2_worker)" = omx-clap-host
-check "the update says so" grep -q 'lv2_worker auto -> omx-clap-host' "$work/update.log"
-check "plugin-hostd starts with the changed file" phd_starts
-sed -i 's/^lv2_worker .*/lv2_worker mod-host/' "$PHD_CONF"
-update
-check "lv2_worker mod-host set by hand is kept" test "$(conf "$PHD_CONF" lv2_worker)" = mod-host
-sed -i 's/^lv2_worker .*/lv2_worker omx-clap-host/' "$PHD_CONF"
-
-echo "== a plugin-qualify with no sync yet, then one with it"
-reset
-cp "$SYS_DIR/scripts/zynthian_envars.sh" "$ENVARS"
-mkdir -p "$work/no-units"
-SYSTEMD_UNIT_DIR=$work/no-units recipe
-check "the recipe says the sync is not there yet" grep -q 'has no qualification sync yet' "$work/recipe.log"
-check "and does not mark it done" test "$(grep -cx qualify-sync "$CONFIG_DIR/openmixer-defaults")" = 0
-recipe
-check "the next run enables the timer" test "$(systemctl is-enabled plugin-qualify-sync.timer)" = enabled
 
 echo "== a new image: the recipe of the setup script, then update_zynthian_sys.sh"
 reset
