@@ -25,7 +25,7 @@ jobs:
       image: debian:trixie
     steps:
       - name: Install the tools
-        run: apt-get update -qq && apt-get install -y --no-install-recommends git gnupg gpgv curl ca-certificates systemd
+        run: apt-get update -qq && apt-get install -y --no-install-recommends git gnupg gpgv curl ca-certificates systemd python3
       - uses: actions/checkout@v4
       - name: The updater takes only our signed release tags, and never rewinds
         run: tests/omx-release-tags-check.sh
