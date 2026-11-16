@@ -235,8 +235,7 @@ if ! is_done qualify-conf && is_installed plugin-qualify; then
 fi
 
 # Zynthian's plugin directories in plugin-hostd.conf, and qualify.conf naming
-# it once plugin-qualify reads them from there (0.20.3). Not a step done once:
-# it follows LV2_PATH and the installed plugin-qualify on every run.
+# it. Not a step done once: it follows LV2_PATH on every run.
 if [ -f "$PHD_CONF" ]; then
 	while IFS= read -r line; do
 		[ -n "$line" ] && change "$line"
