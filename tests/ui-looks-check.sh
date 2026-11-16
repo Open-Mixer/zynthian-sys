@@ -98,26 +98,13 @@ for k in $KEYS; do [ -n "$(val "$E" "$k")" ] && [ "$(val "$E" "$k")" = "$(val "$
 check "a look chosen by name sets all twenty-three, a hand change included" test $same = 1
 check "each key once" bash -c 'for k in $2; do [ "$(grep -c "^export $k=" "$1")" = 1 ] || exit 1; done' _ "$E" "$KEYS"
 
-# --complete: an install whose look predates the grid keys gets the ones it lacks, from the look it holds
+# an install whose look predates the grid keys re-picks its look once: it gets the look's whole token set
 grep -v '_GRID_' "$V" > "$E"; echo 'export ZYNTHIAN_UI_POWER_SAVE_MINUTES="60"' >> "$E"
-sed -i 's/^export ZYNTHIAN_UI_COLOR_INFO=.*/export ZYNTHIAN_UI_COLOR_INFO="#123456"/' "$E"; cp "$E" "$work/old"
-look --complete "$E"; rc=$?
-check "--complete on a vintage install without grid keys adds vintage's six, exit 0" \
-	bash -c 'for k in $3; do [ "$(grep "^export $k=" "$1")" = "$(grep "^export $k=" "$2")" ] || exit 1; done; [ "$4" = 0 ]' _ "$E" "$V" "$GRID" "$rc"
-check "  ... and changes no key it held (a hand change included)" \
-	bash -c 'diff <(grep -v _GRID_ "$1") "$2" > /dev/null' _ "$E" "$work/old"
-cp "$E" "$work/once"; look --complete "$E"
-check "  ... a second --complete changes nothing" cmp -s "$E" "$work/once"
-grep -v '_GRID_' "$LOOKS/stock.sh" > "$E"
-look --complete "$E"
-check "--complete on a stock install adds stock's grid (upstream's), never vintage's" \
-	bash -c 'for k in $3; do [ "$(grep "^export $k=" "$1")" = "$(grep "^export $k=" "$2")" ] || exit 1; done' _ "$E" "$LOOKS/stock.sh" "$GRID"
-{ grep -v '_GRID_' "$LOOKS/stock.sh" | head -n 11; grep -v '_GRID_' "$V" | sed -n '14,30p'; } > "$E"  # 10 stock keys, 7 vintage: the most, yet not a look; cp "$E" "$work/mixed"
-look --complete "$E"; rc=$?
-check "--complete on a mix of looks adds nothing and says so, exit 0" \
-	test $rc = 0 -a -z "$(cmp "$E" "$work/mixed")" -a "$(grep -c 'no look' "$work/out")" -ge 1
-check "the recipe completes the look on every run" \
-	grep -q 'omx-ui-look.sh" --complete' "$HERE/../scripts/recipes/install_openmixer.sh"
+look openmixer-vintage "$E"
+check "re-picking vintage on an install without the grid keys writes all twenty-three of vintage's" \
+	bash -c 'for k in $3; do [ -n "$(grep "^export $k=" "$2")" ] && [ "$(grep "^export $k=" "$1")" = "$(grep "^export $k=" "$2")" ] || exit 1; done' _ "$E" "$V" "$KEYS"
+check "--complete is no option: refused, nothing written" bash -c 'cp "$1" "$1.b"; ZYNTHIAN_SYS_DIR="$2" bash "$3" --complete "$1" >/dev/null 2>&1; rc=$?; [ $rc = 2 ] && cmp -s "$1" "$1.b"' _ "$E" "$HERE/.." "$SCRIPT"
+check "the recipe runs no look completion" bash -c '! grep -q -- "--complete" "$1"' _ "$HERE/../scripts/recipes/install_openmixer.sh"
 
 envars; cp "$E" "$work/before"
 look no-such-look "$E"; rc=$?
