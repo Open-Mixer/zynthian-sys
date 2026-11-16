@@ -280,6 +280,16 @@ if ! is_done ui-look && [ -f "$ENVARS" ]; then
 	done < <(ZYNTHIAN_SYS_DIR="$ZYNTHIAN_SYS_DIR" "$ZYNTHIAN_SYS_DIR/sbin/omx-ui-look.sh" --keep-changed openmixer-vintage "$ENVARS")
 	mark_done ui-look
 fi
+# A look gains keys (the main menu grid's colours): an install whose look was
+# set before gets the ones it lacks, from the look it holds; nothing else moves.
+if [ -f "$ENVARS" ]; then
+	line=$(ZYNTHIAN_SYS_DIR="$ZYNTHIAN_SYS_DIR" "$ZYNTHIAN_SYS_DIR/sbin/omx-ui-look.sh" --complete "$ENVARS")
+	case "$line" in
+	"complete "*": 0 "*) ;;
+	complete\ *) change "UI look $line"; look_changed=1 ;;
+	*) note "UI look: $line" ;;
+	esac
+fi
 
 #------------------------------------------------------------------------------
 # Report

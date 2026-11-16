@@ -1,8 +1,10 @@
 #!/bin/bash
 #******************************************************************************
-# The UI looks in config/ui-looks: each sets the sixteen ZYNTHIAN_UI_COLOR_*
-# and the font, in one order; stock.sh is zynthian-ui's own defaults (read from
-# the zynthian_gui_config.py given in ZYNTHIAN_GUI_CONFIG); the OpenMixer
+# The UI looks in config/ui-looks: each sets the sixteen ZYNTHIAN_UI_COLOR_*,
+# the font and the main menu grid's six ZYNTHIAN_UI_COLOR_GRID_*, in one order;
+# stock.sh is zynthian-ui's own defaults (read from the zynthian_gui_config.py
+# given in ZYNTHIAN_GUI_CONFIG; a default that names another colour is that
+# colour's default), so stock draws as upstream Zynthian does; the OpenMixer
 # vintage file's pin recomputes from its own lines. sbin/omx-ui-look.sh is run
 # on copies of zynthian_envars.sh, so it runs anywhere.
 #
@@ -24,12 +26,16 @@ val() { sed -n "s/^export $2=\"\([^\"]*\)\"$/\1/p" "$1" | tail -n 1; }
 KEYS="ZYNTHIAN_UI_COLOR_BG ZYNTHIAN_UI_COLOR_TX ZYNTHIAN_UI_COLOR_TX_OFF ZYNTHIAN_UI_COLOR_ON ZYNTHIAN_UI_COLOR_OFF
 ZYNTHIAN_UI_COLOR_LOW_ON ZYNTHIAN_UI_COLOR_HL ZYNTHIAN_UI_COLOR_ML ZYNTHIAN_UI_COLOR_PANEL_BG ZYNTHIAN_UI_COLOR_PANEL_HL
 ZYNTHIAN_UI_COLOR_INFO ZYNTHIAN_UI_COLOR_MIDI ZYNTHIAN_UI_COLOR_ALT ZYNTHIAN_UI_COLOR_ALT2 ZYNTHIAN_UI_COLOR_ERROR
-ZYNTHIAN_UI_COLOR_WARN ZYNTHIAN_UI_FONT_FAMILY"
+ZYNTHIAN_UI_COLOR_WARN ZYNTHIAN_UI_FONT_FAMILY
+ZYNTHIAN_UI_COLOR_GRID_BG ZYNTHIAN_UI_COLOR_GRID_TILE ZYNTHIAN_UI_COLOR_GRID_TILE_OFF ZYNTHIAN_UI_COLOR_GRID_TX
+ZYNTHIAN_UI_COLOR_GRID_TX_OFF ZYNTHIAN_UI_COLOR_GRID_SEL"
+GRID="ZYNTHIAN_UI_COLOR_GRID_BG ZYNTHIAN_UI_COLOR_GRID_TILE ZYNTHIAN_UI_COLOR_GRID_TILE_OFF ZYNTHIAN_UI_COLOR_GRID_TX
+ZYNTHIAN_UI_COLOR_GRID_TX_OFF ZYNTHIAN_UI_COLOR_GRID_SEL"
 want=$(echo $KEYS | tr ' ' '\n')
 
 # --- the files
 for f in stock openmixer-vintage; do
-	check "$f.sh sets the sixteen colours and the font, in order" test "$(keys "$LOOKS/$f.sh" 2>/dev/null)" = "$want"
+	check "$f.sh sets the sixteen colours, the font and the six grid colours, in order" test "$(keys "$LOOKS/$f.sh" 2>/dev/null)" = "$want"
 done
 check "every look names itself on its first line" \
 	bash -c 'for f in "$1"/*.sh; do head -n 1 "$f" | grep -q "^# [A-Za-z]"; done' _ "$LOOKS"
@@ -40,15 +46,29 @@ sum=$(sed -n 's/^export \([A-Z0-9_]*\)="\([^"]*\)"$/\1=\2/p' "$V" 2>/dev/null | 
 check "the vintage file's pin recomputes from its lines" test -n "$pin" -a "$pin" = "$sum"
 
 if [ -f "${ZYNTHIAN_GUI_CONFIG:-}" ]; then
+	# zynthian-ui's default of a key: its literal, or the default of the colour it names
+	default() {
+		local d n
+		d=$(sed -n "s/^[a-z0-9_]* = os.environ.get('$1', \"\([^\"]*\)\").*/\1/p" "$ZYNTHIAN_GUI_CONFIG" | head -n 1)
+		[ -n "$d" ] && { echo "$d"; return; }
+		n=$(sed -n "s/^[a-z0-9_]* = os.environ.get('$1', \(color_[a-z0-9_]*\)).*/\1/p" "$ZYNTHIAN_GUI_CONFIG" | head -n 1)
+		[ -n "$n" ] && default "$(sed -n "s/^$n = os.environ.get('\([A-Z0-9_]*\)'.*/\1/p" "$ZYNTHIAN_GUI_CONFIG" | head -n 1)"
+	}
 	same=1
 	for k in $KEYS; do
-		d=$(sed -n "s/^[a-z0-9_]* = os.environ.get('$k', \"\([^\"]*\)\").*/\1/p" "$ZYNTHIAN_GUI_CONFIG" | head -n 1)
+		d=$(default "$k")
 		[ -n "$d" ] && [ "$d" = "$(val "$LOOKS/stock.sh" "$k")" ] || { same=0; echo "     $k: zynthian-ui '${d}' stock.sh '$(val "$LOOKS/stock.sh" "$k")'"; }
 	done
 	check "stock.sh is zynthian-ui's own defaults" test $same = 1
 else
 	bad "stock.sh against zynthian-ui: ZYNTHIAN_GUI_CONFIG names no file"
 fi
+
+# --- the grid of each look
+check "stock's grid is upstream Zynthian's main menu (the greys, white and #aaaaaa text, a yellow frame on the panel)" \
+	test "$(for k in $GRID; do printf '%s ' "$(val "$LOOKS/stock.sh" "$k")"; done)" = "#3a424d #666666 #444444 #ffffff #aaaaaa yellow "
+check "vintage's grid is its own panels, text and accent: no grid colour is stock's" \
+	bash -c 'for k in $3; do [ -n "$(sed -n "s/^export $k=\"\(.*\)\"$/\1/p" "$1")" ] && [ "$(sed -n "s/^export $k=\"\(.*\)\"$/\1/p" "$1")" != "$(sed -n "s/^export $k=\"\(.*\)\"$/\1/p" "$2")" ] || exit 1; done' _ "$V" "$LOOKS/stock.sh" "$GRID"
 
 # --- omx-ui-look.sh on copies of the envars
 work=$(mktemp -d)
@@ -75,8 +95,29 @@ check "a second run changes nothing" cmp -s "$E" "$work/once"
 look stock "$E"
 same=1
 for k in $KEYS; do [ -n "$(val "$E" "$k")" ] && [ "$(val "$E" "$k")" = "$(val "$LOOKS/stock.sh" "$k")" ] || same=0; done
-check "a look chosen by name sets all seventeen, a hand change included" test $same = 1
+check "a look chosen by name sets all twenty-three, a hand change included" test $same = 1
 check "each key once" bash -c 'for k in $2; do [ "$(grep -c "^export $k=" "$1")" = 1 ] || exit 1; done' _ "$E" "$KEYS"
+
+# --complete: an install whose look predates the grid keys gets the ones it lacks, from the look it holds
+grep -v '_GRID_' "$V" > "$E"; echo 'export ZYNTHIAN_UI_POWER_SAVE_MINUTES="60"' >> "$E"
+sed -i 's/^export ZYNTHIAN_UI_COLOR_INFO=.*/export ZYNTHIAN_UI_COLOR_INFO="#123456"/' "$E"; cp "$E" "$work/old"
+look --complete "$E"; rc=$?
+check "--complete on a vintage install without grid keys adds vintage's six, exit 0" \
+	bash -c 'for k in $3; do [ "$(grep "^export $k=" "$1")" = "$(grep "^export $k=" "$2")" ] || exit 1; done; [ "$4" = 0 ]' _ "$E" "$V" "$GRID" "$rc"
+check "  ... and changes no key it held (a hand change included)" \
+	bash -c 'diff <(grep -v _GRID_ "$1") "$2" > /dev/null' _ "$E" "$work/old"
+cp "$E" "$work/once"; look --complete "$E"
+check "  ... a second --complete changes nothing" cmp -s "$E" "$work/once"
+grep -v '_GRID_' "$LOOKS/stock.sh" > "$E"
+look --complete "$E"
+check "--complete on a stock install adds stock's grid (upstream's), never vintage's" \
+	bash -c 'for k in $3; do [ "$(grep "^export $k=" "$1")" = "$(grep "^export $k=" "$2")" ] || exit 1; done' _ "$E" "$LOOKS/stock.sh" "$GRID"
+{ grep -v '_GRID_' "$LOOKS/stock.sh" | head -n 11; grep -v '_GRID_' "$V" | sed -n '14,30p'; } > "$E"  # 10 stock keys, 7 vintage: the most, yet not a look; cp "$E" "$work/mixed"
+look --complete "$E"; rc=$?
+check "--complete on a mix of looks adds nothing and says so, exit 0" \
+	test $rc = 0 -a -z "$(cmp "$E" "$work/mixed")" -a "$(grep -c 'no look' "$work/out")" -ge 1
+check "the recipe completes the look on every run" \
+	grep -q 'omx-ui-look.sh" --complete' "$HERE/../scripts/recipes/install_openmixer.sh"
 
 envars; cp "$E" "$work/before"
 look no-such-look "$E"; rc=$?
