@@ -2,8 +2,9 @@
 #******************************************************************************
 # scripts/recipes/install_openmixer.sh on a device, with the package tools
 # stubbed: a fresh install gets the defaults, and a config that already exists
-# is not rewritten to match them. The recipe does not change a plugin-hostd.conf
-# or a zynthian_envars.sh it finds; it does not rewrite lv2_worker; it enables
+# is not rewritten to match them. The recipe adds ZYNTHIAN_PLUGIN_ENGINE and
+# ZYNTHIAN_MODHOST_BACKEND to a zynthian_envars.sh it finds (a stock device);
+# it does not change a plugin-hostd.conf it finds, nor rewrite lv2_worker; it enables
 # the qualification sync units whenever plugin-qualify is installed.
 #
 # Container only (it writes /etc/tmpfiles.d), as root:
@@ -62,10 +63,11 @@ check "lv2_worker auto is not rewritten" test "$(conf "$work/config/plugin-hostd
 check "require_pins 0 is not changed to 1" test "$(conf "$work/config/plugin-hostd.conf" require_pins)" = 0
 check "no key is added to plugin-hostd.conf (only the plugin directories, written by omx-search-paths.sh)" \
 	test "$(grep -c -e '^pin_mode' -e '^pin_file' -e '^qualification_dir' -e '^descriptor_dir' "$work/config/plugin-hostd.conf")" = 0
-check "ZYNTHIAN_PLUGIN_ENGINE is not added to zynthian_envars.sh" bash -c '! grep -q ZYNTHIAN_PLUGIN_ENGINE "$1"' _ "$work/config/zynthian_envars.sh"
-check "ZYNTHIAN_MODHOST_BACKEND is not rewritten" grep -qx 'export ZYNTHIAN_MODHOST_BACKEND="jack_load"' "$work/config/zynthian_envars.sh"
-check "no envars step is recorded" bash -c '! grep -qx envars "$1"' _ "$work/config/openmixer-defaults"
-check "the report says no restart is pending" bash -c '! grep -q "were not restarted" "$1"' _ "$work/recipe.log"
+check "ZYNTHIAN_PLUGIN_ENGINE is added to the existing zynthian_envars.sh" grep -qx 'export ZYNTHIAN_PLUGIN_ENGINE="plugin-hostd"' "$work/config/zynthian_envars.sh"
+check "ZYNTHIAN_MODHOST_BACKEND is set to plugin-hostd in it" grep -qx 'export ZYNTHIAN_MODHOST_BACKEND="plugin-hostd"' "$work/config/zynthian_envars.sh"
+check "the other lines of zynthian_envars.sh stay" grep -qx 'export LV2_PATH="/usr/lib/lv2"' "$work/config/zynthian_envars.sh"
+check "the envars step is recorded" grep -qx envars "$work/config/openmixer-defaults"
+check "the report says mod-host was not restarted" grep -q "were not restarted" "$work/recipe.log"
 
 echo "== plugin-qualify installed: the sync units are enabled"
 fresh
