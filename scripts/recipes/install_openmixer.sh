@@ -14,6 +14,8 @@
 # - /zynthian/config/plugin-hostd.conf with the pins of the qualification sync;
 # - the qualification sync (plugin-qualify-sync.timer and .path) with
 #   Zynthian's plugin directories in /etc/omx/qualify.conf.
+# - the OpenMixer vintage UI look and its font (fonts-inter), once; a colour
+#   chosen by hand stays.
 #
 # Each of these is done once: the steps done are listed in
 # $ZYNTHIAN_CONFIG_DIR/openmixer-defaults, so a later run leaves a setting
@@ -257,6 +259,28 @@ if ! is_done qualify-sync && is_installed plugin-qualify; then
 	fi
 fi
 
+# The UI look: OpenMixer vintage (config/ui-looks/openmixer-vintage.sh, the
+# console's colours and its font Inter), set once; a colour chosen by hand
+# stays. fonts-inter carries the font. The web configurator's UI page changes it.
+look_changed=0
+if ! is_installed fonts-inter; then
+	if apt-get "${APT_OPTS[@]}" install fonts-inter >/dev/null; then
+		change "installed fonts-inter $(version_of fonts-inter)"
+	else
+		note "fonts-inter did not install: the UI falls back to another font until the next run"
+	fi
+fi
+if ! is_done ui-look && [ -f "$ENVARS" ]; then
+	while IFS= read -r line; do
+		case "$line" in
+		kept\ *) note "UI look: $line" ;;
+		"look openmixer-vintage: 0 "*) ;;
+		look\ *) change "UI $line"; look_changed=1 ;;
+		esac
+	done < <(ZYNTHIAN_SYS_DIR="$ZYNTHIAN_SYS_DIR" "$ZYNTHIAN_SYS_DIR/sbin/omx-ui-look.sh" --keep-changed openmixer-vintage "$ENVARS")
+	mark_done ui-look
+fi
+
 #------------------------------------------------------------------------------
 # Report
 #------------------------------------------------------------------------------
@@ -271,6 +295,9 @@ for n in "${notes[@]}"; do echo "  note: $n"; done
 if [ "$modhost_changed" = 1 ] || [ "$phd_changed" = 1 ]; then
 	echo "  mod-host and mod-ui were not restarted: the change applies at their next start"
 	echo "  (a reboot, or now: $ZYNTHIAN_SYS_DIR/sbin/set_modhost_backend.sh plugin-hostd)"
+fi
+if [ "$look_changed" = 1 ]; then
+	echo "  zynthian was not restarted: the UI look applies from its next start"
 fi
 if [ "$engine_changed" = 1 ]; then
 	echo "  zynthian was not restarted: the menus offer plugin-hostd from its next start"
