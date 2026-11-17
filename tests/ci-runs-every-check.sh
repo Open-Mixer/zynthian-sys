@@ -181,6 +181,17 @@ jobs:
       - name: run in a block after an if
         run: |
           if true; then tests/inthen-check.sh; fi
+      - name: run on the line after a continuation
+        run: |
+          bash \
+            tests/continued-check.sh
+      - name: run on a continuation of a one-line run
+        run: cd . && \
+          tests/continued1-check.sh
+      - name: only an echo argument on the continuation
+        run: |
+          echo hello \
+            tests/contecho-check.sh
       - name: run by a quoted path in a hash-free string
         run: sh "tests/quoted-check.sh"
 YML
@@ -214,6 +225,9 @@ check "the matcher does not take a step with continue-on-error" not runs_in "$fx
 check "the matcher finds bash tests/x" runs_in "$fx/ci.yml" withbash-check.sh
 check "the matcher finds ./tests/x after &&" runs_in "$fx/ci.yml" chained-check.sh
 check "the matcher finds tests/x after then" runs_in "$fx/ci.yml" inthen-check.sh
+check "the matcher finds a script on the line after a backslash in a block" runs_in "$fx/ci.yml" continued-check.sh
+check "the matcher finds a script on the continuation of a one-line run" runs_in "$fx/ci.yml" continued1-check.sh
+check "the matcher does not take an echo argument on a continuation line" not runs_in "$fx/ci.yml" contecho-check.sh
 check "the matcher finds a quoted path run with sh" runs_in "$fx/ci.yml" quoted-check.sh
 check "the matcher does not take a comment inside a run block" not runs_in "$fx/ci.yml" incomment-check.sh
 
