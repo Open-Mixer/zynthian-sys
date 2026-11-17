@@ -327,6 +327,16 @@ jobs:
         run: bash -c 'tests/bashc-check.sh'
       - name: with bash -c after options
         run: bash -ex -o pipefail tests/bashopt-check.sh
+  orbranch:
+    steps:
+      - name: failure goes to an echo
+        run: tests/orecho-check.sh || echo failed
+      - name: failure goes to exit 1
+        run: tests/orexit1-check.sh || exit 1
+      - name: failure goes to exit 2
+        run: tests/orexit2-check.sh || exit 2
+      - name: failure goes to false
+        run: tests/orfalse-check.sh || false
   coejob:
     continue-on-error: true
     steps:
@@ -382,6 +392,10 @@ check "the matcher finds a script run with timeout options" runs_in "$fx/ci.yml"
 check "the matcher finds a script run with bash options" runs_in "$fx/ci.yml" bashe-check.sh
 check "the matcher finds a script run with bash -c" runs_in "$fx/ci.yml" bashc-check.sh
 check "the matcher finds a script run with bash -ex -o pipefail" runs_in "$fx/ci.yml" bashopt-check.sh
+check "the matcher does not take a script followed by || echo" not runs_in "$fx/ci.yml" orecho-check.sh
+check "the matcher finds a script followed by || exit 1" runs_in "$fx/ci.yml" orexit1-check.sh
+check "the matcher finds a script followed by || exit 2" runs_in "$fx/ci.yml" orexit2-check.sh
+check "the matcher finds a script followed by || false" runs_in "$fx/ci.yml" orfalse-check.sh
 check "the matcher does not take a comment inside a run block" not runs_in "$fx/ci.yml" incomment-check.sh
 
 for f in "$HERE"/*-check.sh; do
