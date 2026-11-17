@@ -116,6 +116,11 @@ jobs:
     steps:
       - name: in a job disabled with an expression
         run: tests/jobexpr-check.sh
+  off4:
+    steps:
+      - name: in a job disabled after its steps
+        run: tests/joblate-check.sh
+    if: false
   off3:
     steps:
       - name: step disabled with a spaceless expression
@@ -129,6 +134,7 @@ check "the matcher does not take a step with if: false" not runs_in "$fx/ci.yml"
 check "the matcher does not take a step of a job with if: false" not runs_in "$fx/ci.yml" joboff-check.sh
 check "the matcher does not take a step of a job with if: \${{false}}" not runs_in "$fx/ci.yml" jobexpr-check.sh
 check "the matcher does not take a step with if: \${{false}}" not runs_in "$fx/ci.yml" stepexpr-check.sh
+check "the matcher does not take a step of a job whose if: false follows its steps" not runs_in "$fx/ci.yml" joblate-check.sh
 check "the matcher does not take a comment inside a run block" not runs_in "$fx/ci.yml" incomment-check.sh
 
 for f in "$HERE"/*-check.sh; do
