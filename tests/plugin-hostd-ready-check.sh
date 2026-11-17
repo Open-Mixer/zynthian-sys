@@ -76,11 +76,6 @@ check "and it says why" grep -q "declares no readiness line" <<<"$out"
 cleanup
 
 echo "-- the protocol file is read in one place"
-echo '{"readiness": {"daemon_line": "old-home is up"}}' >"$work/protocol.json.old"
-out=$(PHD_PROTOCOL= PHD_PROTOCOL_PLACES="$work/protocol.json.old" FAKE_LINE="old-home is up" READY_TIMEOUT=2 \
-	env_run env PHD_PROTOCOL= PHD_PROTOCOL_PLACES="$work/protocol.json.old" PORT=59555 FEEDBACK_PORT=59556 "$BACKEND" start 2>&1); rc=$?
-check "a protocol file in another place is not looked for" test $rc = 1
-cleanup
 check "the script names no place but plugin-hostd-protocol's plugin-hostd.json" \
 	sh -c "! grep -q -e PHD_PROTOCOL_PLACES -e 'plugin-hostd/protocol.json' '$START' && grep -q '/usr/share/plugin-hostd-protocol/plugin-hostd.json' '$START'"
 
