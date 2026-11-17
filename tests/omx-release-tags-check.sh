@@ -38,7 +38,6 @@ for f in scripts/omx-track-latest.sh scripts/omx-track-tag.sh etc/systemd/omx-tr
 	etc/systemd/omx-track-latest.timer tests/omx-track-latest-check.sh; do
 	check "$f is deleted" test ! -e "$ROOT/$f"
 done
-check "the update script no longer enables the timer" bash -c '! grep -q "enable --now omx-track-latest" "$1"' _ "$ROOT/scripts/update_zynthian_sys.sh"
 check "the update script does not look for the follower's units" bash -c '! grep -q "omx-track-latest" "$1"' _ "$ROOT/scripts/update_zynthian_sys.sh"
 check "the update script enables the MOD GUI sync without a version message" bash -c '! grep -q "omx-panel 0.4.0" "$1"' _ "$ROOT/scripts/update_zynthian_sys.sh"
 check "and the install recipe says nothing of a plugin-qualify with no sync" bash -c '! grep -q "no qualification sync" "$1"' _ "$ROOT/scripts/recipes/install_openmixer.sh"

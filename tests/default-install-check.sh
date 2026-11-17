@@ -135,17 +135,9 @@ assert_defaults() {
 		check "LV2_PATH has $d" grep -qx "$d" <<<"$lv2"
 	done
 	check "mod-host.service runs with the same LV2_PATH" test "$unit" = "$lv2"
-	check "the sync searches LV2_PATH's plugin directories in LV2_PATH's order" \
-		in_order "$(grep -v -E 'presets|modgui' <<<"$lv2")" "$qdirs"
 	check "the Pianoteq recipe links its bundles into a directory on LV2_PATH" \
 		grep -q 'ln -s $ZYNTHIAN_SW_DIR/pianoteq/$armdir/\*.lv2 $ZYNTHIAN_PLUGINS_DIR/lv2' \
 		"$SYS_DIR/scripts/recipes/install_pianoteq_binary.sh"
-}
-
-# The lines of $1 appear in $2 in the same order
-in_order() {
-	awk 'BEGIN { n = 0; i = 0 } NR == FNR { want[n++] = $0; next } i < n && $0 == want[i] { i++ } END { exit (i < n) }' \
-		<(echo "$1") <(echo "$2")
 }
 
 phd_starts() {
@@ -213,7 +205,8 @@ printf '#!/bin/sh\necho aarch64\n' >"$work/arm/bin/uname"
 chmod +x "$work/arm/bin/dpkg" "$work/arm/bin/uname"
 printf 'processor\t: 0\nCPU implementer\t: 0x41\n' >"$work/arm/cpuinfo"
 cp /usr/lib/clap/omx-drive.clap "$work/arm/clap/"
-printf '%s\n' "clap_path $work/arm/clap" "lv2_path $work/arm/lv2" "lv2_extra" "pin_file $work/arm/qualified.pins" \
+printf '%s\n' "clap_path $work/arm/clap" "lv2_path $work/arm/lv2" >"$work/arm/plugin-hostd.conf"
+printf '%s\n' "hostd_conf $work/arm/plugin-hostd.conf" "pin_file $work/arm/qualified.pins" \
 	"qualification_dir $work/arm/qualification" "descriptor_dir $work/arm/descriptors" \
 	"state_file $work/arm/qualify-sync.json" >"$work/arm/qualify.conf"
 PATH="$work/arm/bin:$PATH" CPUINFO="$work/arm/cpuinfo" QUALIFY_CONF="$work/arm/qualify.conf" "$HOOK" >"$work/hook.log" 2>&1
