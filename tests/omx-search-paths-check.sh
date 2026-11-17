@@ -44,6 +44,8 @@ run() {
 }
 # the run writes plugin-hostd.conf and names it in qualify.conf, and nothing else
 setup
+SEARCH_LINES="^(lv2_path|lv2_extra|clap_path|clap_extra)[[:space:]]"
+grep -E "$SEARCH_LINES" "$work/d/qualify.conf" >"$work/search.before"
 out=$(run); rc=$?
 check "the run succeeds ($rc): $out" test "$rc" = 0
 check "plugin-hostd.conf: lv2_path is Zynthian's LV2_PATH" test "$(conf "$work/d/plugin-hostd.conf" lv2_path)" = "$LV2"
@@ -52,7 +54,7 @@ check "plugin-hostd.conf: no lv2_extra carried over from qualify.conf" test -z "
 check "qualify.conf: hostd_conf names plugin-hostd.conf, with no plugin-qualify version known" \
 	test "$(conf "$work/d/qualify.conf" hostd_conf)" = "$work/d/plugin-hostd.conf"
 check "qualify.conf: its search path lines are left as they were" \
-	test "$(grep -cE '^(lv2_path|lv2_extra|clap_path|clap_extra)[[:space:]]' "$work/d/qualify.conf")" = 4
+	sh -c "[ -s '$work/search.before' ] && grep -E '$SEARCH_LINES' '$work/d/qualify.conf' | cmp -s '$work/search.before' -"
 check "qualify.conf: its other settings stay" test "$(conf "$work/d/qualify.conf" pin_file)" = /var/lib/omx/qualified.pins
 check "plugin-hostd.conf: its other settings stay" test "$(conf "$work/d/plugin-hostd.conf" lv2_worker)" = omx-clap-host
 cp "$work/d/plugin-hostd.conf" "$work/phd.1"; cp "$work/d/qualify.conf" "$work/q.1"
