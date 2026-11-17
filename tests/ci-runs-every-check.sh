@@ -42,7 +42,7 @@ for raw in open(path):
     if in_jobs and indent == job_indent:
         job, cur, step_indent = {"if": None}, None, None
         continue
-    if in_jobs and indent == job_indent + 2 and cur is None:
+    if in_jobs and indent == job_indent + 2:
         m = re.match(r"if:\s*(.*?)\s*(#.*)?$", line.strip())
         if m:
             job["if"] = m.group(1)
