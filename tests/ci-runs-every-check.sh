@@ -340,6 +340,50 @@ jobs:
         run: tests/orexit2-check.sh || exit 2
       - name: failure goes to false
         run: tests/orfalse-check.sh || false
+  pipes:
+    steps:
+      - name: before a pipe, no pipefail
+        run: tests/pipe-check.sh | tee log
+      - name: before a pipe, pipefail set in the block
+        run: |
+          set -o pipefail
+          tests/pipepf-check.sh | tee log
+      - name: before a pipe, set -euo pipefail
+        run: |
+          set -euo pipefail
+          tests/pipeeuo-check.sh | tee log
+      - name: before a pipe, pipefail in the step's shell
+        shell: bash -eo pipefail {0}
+        run: tests/pipeshell-check.sh | tee log
+      - name: last in a pipe
+        run: cat a | tests/pipelast-check.sh
+  pipejob:
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    steps:
+      - name: before a pipe, pipefail in the job's defaults
+        run: tests/pipejob-check.sh | tee log
+  shellcheck:
+    steps:
+      - name: syntax only
+        run: bash -n tests/bashn-check.sh
+      - name: syntax only, combined option
+        run: bash -en tests/bashen-check.sh
+      - name: backgrounded
+        run: tests/bg-check.sh &
+      - name: and-list
+        run: tests/andlist-check.sh && echo ok
+      - name: redirected
+        run: tests/redir-check.sh 2>&1
+      - name: group with exit 1
+        run: tests/grpexit-check.sh || { echo bad; exit 1; }
+      - name: group that succeeds
+        run: tests/grpok-check.sh || { echo ok; }
+      - name: subshell with exit 3
+        run: tests/subexit-check.sh || ( echo bad; exit 3 )
+      - name: subshell that succeeds
+        run: tests/subok-check.sh || (echo ok)
   coejob:
     continue-on-error: true
     steps:
@@ -399,6 +443,21 @@ check "the matcher does not take a script followed by || echo" not runs_in "$fx/
 check "the matcher finds a script followed by || exit 1" runs_in "$fx/ci.yml" orexit1-check.sh
 check "the matcher finds a script followed by || exit 2" runs_in "$fx/ci.yml" orexit2-check.sh
 check "the matcher finds a script followed by || false" runs_in "$fx/ci.yml" orfalse-check.sh
+check "the matcher does not take a script before a pipe without pipefail" not runs_in "$fx/ci.yml" pipe-check.sh
+check "the matcher finds a script before a pipe after set -o pipefail" runs_in "$fx/ci.yml" pipepf-check.sh
+check "the matcher finds a script before a pipe after set -euo pipefail" runs_in "$fx/ci.yml" pipeeuo-check.sh
+check "the matcher finds a script before a pipe under shell: with pipefail" runs_in "$fx/ci.yml" pipeshell-check.sh
+check "the matcher finds a script last in a pipe" runs_in "$fx/ci.yml" pipelast-check.sh
+check "the matcher finds a script before a pipe under the job's default shell with pipefail" runs_in "$fx/ci.yml" pipejob-check.sh
+check "the matcher does not take bash -n" not runs_in "$fx/ci.yml" bashn-check.sh
+check "the matcher does not take bash -en" not runs_in "$fx/ci.yml" bashen-check.sh
+check "the matcher does not take a backgrounded script" not runs_in "$fx/ci.yml" bg-check.sh
+check "the matcher finds a script before &&" runs_in "$fx/ci.yml" andlist-check.sh
+check "the matcher finds a script with 2>&1" runs_in "$fx/ci.yml" redir-check.sh
+check "the matcher finds a script followed by || { ...; exit 1; }" runs_in "$fx/ci.yml" grpexit-check.sh
+check "the matcher does not take a script followed by || { echo ok; }" not runs_in "$fx/ci.yml" grpok-check.sh
+check "the matcher finds a script followed by || ( ...; exit 3 )" runs_in "$fx/ci.yml" subexit-check.sh
+check "the matcher does not take a script followed by || (echo ok)" not runs_in "$fx/ci.yml" subok-check.sh
 check "the matcher does not take a comment inside a run block" not runs_in "$fx/ci.yml" incomment-check.sh
 
 for f in "$HERE"/*-check.sh; do
