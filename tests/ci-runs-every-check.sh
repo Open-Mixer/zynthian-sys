@@ -427,6 +427,49 @@ jobs:
         run: tests/subexit-check.sh || ( echo bad; exit 3 )
       - name: subshell that succeeds
         run: tests/subok-check.sh || (echo ok)
+  shells:
+    steps:
+      - name: explicit bash shell on the step
+        shell: bash
+        run: tests/shbash-check.sh | tee log
+      - name: explicit sh shell on the step
+        shell: sh
+        run: tests/shsh-check.sh | tee log
+      - name: pipefail turned off again
+        run: |
+          set -o pipefail
+          set +o pipefail
+          tests/pfoff-check.sh | tee log
+      - name: pipefail turned off, never on
+        run: |
+          set +o pipefail
+          tests/pfoff2-check.sh | tee log
+      - name: pipefail set after the pipe
+        run: |
+          tests/pfafter-check.sh | tee log
+          set -o pipefail
+      - name: pipefail only in a quoted string
+        run: |
+          echo "set -o pipefail"
+          tests/pfquoted-check.sh | tee log
+      - name: set -n inside a quoted bash -c string
+        run: bash -c "set -n; tests/cn-check.sh"
+      - name: a bash -c string that sets pipefail
+        run: bash -c "set -o pipefail; tests/cpf-check.sh | tee log"
+      - name: a bash -c string with a pipe and no pipefail
+        run: bash -c "tests/cnopf-check.sh | tee log"
+      - name: set -n then set +n
+        run: |
+          set -n
+          set +n
+          tests/nback-check.sh
+  shelljob:
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: explicit bash in the job's defaults
+        run: tests/shjob-check.sh | tee log
   coejob:
     continue-on-error: true
     steps:
@@ -444,6 +487,16 @@ jobs:
         steps:
             - name: live in a four-space file
               run: tests/wide-live-check.sh
+YML
+cat >"$fx/ciwf.yml" <<'YML'
+defaults:
+  run:
+    shell: bash
+jobs:
+  j:
+    steps:
+      - name: explicit bash in the workflow's defaults
+        run: tests/shwf-check.sh | tee log
 YML
 check "the matcher finds a live step" runs_in "$fx/ci.yml" live-check.sh
 check "the matcher finds a script inside a run block" runs_in "$fx/ci.yml" block-check.sh
@@ -501,6 +554,18 @@ check "the matcher finds a script followed by || { ...; exit 1; }" runs_in "$fx/
 check "the matcher does not take a script followed by || { echo ok; }" not runs_in "$fx/ci.yml" grpok-check.sh
 check "the matcher finds a script followed by || ( ...; exit 3 )" runs_in "$fx/ci.yml" subexit-check.sh
 check "the matcher does not take a script followed by || (echo ok)" not runs_in "$fx/ci.yml" subok-check.sh
+check "the matcher finds a piped script under an explicit shell: bash on the step" runs_in "$fx/ci.yml" shbash-check.sh
+check "the matcher does not take a piped script under an explicit shell: sh" not runs_in "$fx/ci.yml" shsh-check.sh
+check "the matcher finds a piped script under shell: bash in the job's defaults" runs_in "$fx/ci.yml" shjob-check.sh
+check "the matcher finds a piped script under shell: bash in the workflow's defaults" runs_in "$fx/ciwf.yml" shwf-check.sh
+check "the matcher does not take a piped script after set +o pipefail following set -o pipefail" not runs_in "$fx/ci.yml" pfoff-check.sh
+check "the matcher does not take a piped script after set +o pipefail alone" not runs_in "$fx/ci.yml" pfoff2-check.sh
+check "the matcher does not take a piped script before the set -o pipefail" not runs_in "$fx/ci.yml" pfafter-check.sh
+check "the matcher does not take pipefail named only in a quoted string" not runs_in "$fx/ci.yml" pfquoted-check.sh
+check "the matcher does not take a script after set -n in a bash -c string" not runs_in "$fx/ci.yml" cn-check.sh
+check "the matcher finds a piped script after set -o pipefail in a bash -c string" runs_in "$fx/ci.yml" cpf-check.sh
+check "the matcher does not take a piped script in a bash -c string without pipefail" not runs_in "$fx/ci.yml" cnopf-check.sh
+check "the matcher finds a script after set -n then set +n" runs_in "$fx/ci.yml" nback-check.sh
 check "the matcher does not take a comment inside a run block" not runs_in "$fx/ci.yml" incomment-check.sh
 
 for f in "$HERE"/*-check.sh; do
