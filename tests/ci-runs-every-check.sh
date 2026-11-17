@@ -106,12 +106,25 @@ def executes(l):
             if w == want or w.endswith("/" + want):
                 return True
     return False
+def join_continued(lines):
+    # a line ending in a backslash joins the next one
+    out, acc = [], ""
+    for l in lines:
+        t = l.strip()
+        if t.endswith("\\"):
+            acc += t[:-1].rstrip() + " "
+        else:
+            out.append(acc + t)
+            acc = ""
+    if acc:
+        out.append(acc)
+    return out
 def is_off(v):
     return v is not None and re.sub(r"\s|\$\{\{|\}\}|'|\"", "", v) == "false"
 for st in steps:
     if is_off(st["if"]) or is_off(st["job"]["if"]) or st["coe"]:
         continue
-    if any(executes(l) for l in st["run"]):
+    if any(executes(l) for l in join_continued(st["run"])):
         sys.exit(0)
 sys.exit(1)
 PY
