@@ -20,7 +20,53 @@ check() { local what=$1; shift; if "$@"; then ok "$what"; else bad "$what"; fi; 
 
 # a step runs the script: a real run line, outside a comment, in a step that is not switched off
 not() { ! "$@"; }
-runs_in() { grep -q "tests/$2" "$1"; }
+# Read with python3's standard library only (the CI job has no PyYAML): a step starts at a
+# list item at the indent of the first one under `steps:`; comment lines are dropped; a step
+# whose `if:` is a literal false is skipped.
+runs_in() {
+	python3 -I - "$1" "tests/$2" <<'PY'
+import re, sys
+path, want = sys.argv[1:3]
+steps, cur, step_indent, in_run = [], None, None, False
+for raw in open(path):
+    line = raw.rstrip("\n")
+    if line.lstrip().startswith("#") or not line.strip():
+        continue
+    indent = len(line) - len(line.lstrip())
+    if line.lstrip().startswith("steps:"):
+        step_indent, cur = None, None
+        continue
+    if line.lstrip().startswith("- "):
+        if step_indent is None:
+            step_indent = indent
+        if indent == step_indent:
+            cur = {"if": None, "run": []}
+            in_run = False
+            steps.append(cur)
+            line = " " * (indent + 2) + line.lstrip()[2:]
+    if cur is None:
+        continue
+    body = line.strip()
+    m = re.match(r"if:\s*(.*?)\s*(#.*)?$", body)
+    if m and len(line) - len(line.lstrip()) == step_indent + 2:
+        cur["if"] = m.group(1)
+    elif body.startswith("run:") and len(line) - len(line.lstrip()) == step_indent + 2:
+        cur["run"].append(body[4:])
+        in_run = True
+        continue
+    elif in_run and len(line) - len(line.lstrip()) > step_indent + 2:
+        cur["run"].append(body)
+        continue
+    in_run = False
+off = {"false", "${{ false }}", "'false'", '"false"'}
+for st in steps:
+    if st["if"] in off:
+        continue
+    if any(want in l for l in st["run"]):
+        sys.exit(0)
+sys.exit(1)
+PY
+}
 
 # the matcher itself, on a workflow with a live step, a commented-out one and a disabled one
 fx=$(mktemp -d)
