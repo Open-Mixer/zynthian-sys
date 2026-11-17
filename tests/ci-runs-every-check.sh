@@ -18,17 +18,20 @@ ok() { echo "ok   $*"; }
 bad() { fails=$((fails + 1)); echo "FAIL $*"; }
 check() { local what=$1; shift; if "$@"; then ok "$what"; else bad "$what"; fi; }
 
-# a step runs the script: a real run line, outside a comment, in a step that is not switched off
+# a step runs the script when the script is executed (the command word of a line or of what follows
+# && || ; | then do else, after any VAR=value and bash/sh/./sudo: not an argument of echo or printf), in a real
+# run line or block outside comments (a trailing shell comment is dropped), in a step that is not
+# switched off (its if:, or its job's, is not a literal false) and does not continue-on-error
 not() { ! "$@"; }
 # Read with python3's standard library only (the CI job has no PyYAML): a step starts at a
-# list item at the indent of the first one under `steps:`; comment lines are dropped; a step
-# whose `if:`, or its job's, is a literal false (`false`, `${{ false }}`, `${{false}}`) is skipped.
+# list item at the indent of the first one under `steps:`; a job's own keys are at the indent of
+# its first key, whatever it is; `false`, `${{ false }}` and `${{false}}` are a literal false.
 runs_in() {
 	python3 -I - "$1" "tests/$2" <<'PY'
 import re, sys
 path, want = sys.argv[1:3]
 steps, cur, step_indent, in_run = [], None, None, False
-job, job_indent, in_jobs = {"if": None}, None, False
+job, job_indent, in_jobs, job_key_indent = {"if": None}, None, False, None
 for raw in open(path):
     line = raw.rstrip("\n")
     if line.lstrip().startswith("#") or not line.strip():
@@ -40,9 +43,11 @@ for raw in open(path):
     if in_jobs and job_indent is None:
         job_indent = indent
     if in_jobs and indent == job_indent:
-        job, cur, step_indent = {"if": None}, None, None
+        job, cur, step_indent, job_key_indent = {"if": None}, None, None, None
         continue
-    if in_jobs and indent == job_indent + 2:
+    if in_jobs and job_key_indent is None and indent > job_indent:
+        job_key_indent = indent
+    if in_jobs and indent == job_key_indent:
         m = re.match(r"if:\s*(.*?)\s*(#.*)?$", line.strip())
         if m:
             job["if"] = m.group(1)
@@ -54,7 +59,7 @@ for raw in open(path):
         if step_indent is None:
             step_indent = indent
         if indent == step_indent:
-            cur = {"if": None, "run": [], "job": job}
+            cur = {"if": None, "run": [], "job": job, "coe": False}
             in_run = False
             steps.append(cur)
             line = " " * (indent + 2) + line.lstrip()[2:]
@@ -64,6 +69,8 @@ for raw in open(path):
     m = re.match(r"if:\s*(.*?)\s*(#.*)?$", body)
     if m and len(line) - len(line.lstrip()) == step_indent + 2:
         cur["if"] = m.group(1)
+    elif re.match(r"continue-on-error:\s*(true|\$\{\{\s*true\s*\}\})\s*(#.*)?$", body) and len(line) - len(line.lstrip()) == step_indent + 2:
+        cur["coe"] = True
     elif body.startswith("run:") and len(line) - len(line.lstrip()) == step_indent + 2:
         cur["run"].append(body[4:])
         in_run = True
@@ -72,12 +79,39 @@ for raw in open(path):
         cur["run"].append(body)
         continue
     in_run = False
+def strip_comment(l):
+    # an unquoted " #" (or a leading #) to the end of the line
+    q = None
+    for i, c in enumerate(l):
+        if q:
+            if c == q:
+                q = None
+        elif c in "'\"":
+            q = c
+        elif c == "#" and (i == 0 or l[i - 1] in " \t"):
+            return l[:i]
+    return l
+# the command words of a line: its start and what follows && || ; | then do else (and "(")
+SEP = re.compile(r"(?:^|&&|\|\||;|\||\bthen\b|\bdo\b|\belse\b|\()\s*")
+RUNNERS = ("bash", "sh", "source", ".", "exec", "sudo", "time")
+def executes(l):
+    l = strip_comment(l)
+    for m in SEP.finditer(l):
+        rest = l[m.end():].lstrip()
+        words = rest.split()
+        while words and (words[0] in RUNNERS or re.match(r"[A-Za-z_][A-Za-z0-9_]*=", words[0])):
+            words = words[1:]
+        if words:
+            w = words[0].rstrip(";&)").strip("'\"")
+            if w == want or w.endswith("/" + want):
+                return True
+    return False
 def is_off(v):
     return v is not None and re.sub(r"\s|\$\{\{|\}\}|'|\"", "", v) == "false"
 for st in steps:
-    if is_off(st["if"]) or is_off(st["job"]["if"]):
+    if is_off(st["if"]) or is_off(st["job"]["if"]) or st["coe"]:
         continue
-    if any(want in l for l in st["run"]):
+    if any(executes(l) for l in st["run"]):
         sys.exit(0)
 sys.exit(1)
 PY
