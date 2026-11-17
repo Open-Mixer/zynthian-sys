@@ -18,20 +18,20 @@ ok() { echo "ok   $*"; }
 bad() { fails=$((fails + 1)); echo "FAIL $*"; }
 check() { local what=$1; shift; if "$@"; then ok "$what"; else bad "$what"; fi; }
 
-# a step runs the script when the script is executed (the command word of a line or of what follows
-# && || ; | then do else, after any VAR=value and bash/sh/./sudo: not an argument of echo or printf), in a real
-# run line or block outside comments (a trailing shell comment is dropped), in a step that is not
-# switched off (its if:, or its job's, is not a literal false) and does not continue-on-error
+# a step runs the script when the script is executed: the command word of a segment of a run line
+# or block (read as the comment above `segments` says: separators, prefixes, bash -c, heredocs),
+# outside comments, not followed by || true, || : or || exit 0, in a step that is not switched off
+# (its if:, or its job's, is not a literal false) and whose step and job do not continue-on-error
 not() { ! "$@"; }
 # Read with python3's standard library only (the CI job has no PyYAML): a step starts at a
 # list item at the indent of the first one under `steps:`; a job's own keys are at the indent of
 # its first key, whatever it is; `false`, `${{ false }}` and `${{false}}` are a literal false.
 runs_in() {
 	python3 -I - "$1" "tests/$2" <<'PY'
-import re, sys
+import re, shlex, sys
 path, want = sys.argv[1:3]
 steps, cur, step_indent, in_run = [], None, None, False
-job, job_indent, in_jobs, job_key_indent = {"if": None}, None, False, None
+job, job_indent, in_jobs, job_key_indent = {"if": None, "coe": False}, None, False, None
 for raw in open(path):
     line = raw.rstrip("\n")
     if line.lstrip().startswith("#") or not line.strip():
@@ -43,7 +43,7 @@ for raw in open(path):
     if in_jobs and job_indent is None:
         job_indent = indent
     if in_jobs and indent == job_indent:
-        job, cur, step_indent, job_key_indent = {"if": None}, None, None, None
+        job, cur, step_indent, job_key_indent = {"if": None, "coe": False}, None, None, None
         continue
     if in_jobs and job_key_indent is None and indent > job_indent:
         job_key_indent = indent
@@ -51,6 +51,9 @@ for raw in open(path):
         m = re.match(r"if:\s*(.*?)\s*(#.*)?$", line.strip())
         if m:
             job["if"] = m.group(1)
+            continue
+        if re.match(r"continue-on-error:\s*(true|\$\{\{\s*true\s*\}\})\s*(#.*)?$", line.strip()):
+            job["coe"] = True
             continue
     if line.lstrip().startswith("steps:"):
         step_indent, cur = None, None
@@ -91,21 +94,101 @@ def strip_comment(l):
         elif c == "#" and (i == 0 or l[i - 1] in " \t"):
             return l[:i]
     return l
-# the command words of a line: its start and what follows && || ; | then do else (and "(")
-SEP = re.compile(r"(?:^|&&|\|\||;|\||\bthen\b|\bdo\b|\belse\b|\()\s*")
-RUNNERS = ("bash", "sh", "source", ".", "exec", "sudo", "time")
-def executes(l):
-    l = strip_comment(l)
-    for m in SEP.finditer(l):
-        rest = l[m.end():].lstrip()
-        words = rest.split()
-        while words and (words[0] in RUNNERS or re.match(r"[A-Za-z_][A-Za-z0-9_]*=", words[0])):
+# Commands are read per segment: a line is split at && || ; | ( and the words then do else, outside
+# quotes; a segment followed by `|| true`, `|| :` or `|| exit 0` cannot fail the job and is dropped.
+# Lines of a heredoc body are data. Before the command word these are skipped: VAR=value, and
+# source . exec sudo time command; env with its options and VAR=value; timeout with its options
+# and duration; bash and sh with their options (-c reads its string as a command line).
+SKIP = ("source", ".", "exec", "sudo", "time", "command")
+def segments(l):
+    out, cur, sep, q, i = [], "", "", None, 0
+    def cut(newsep):
+        nonlocal cur, sep
+        out.append((sep, cur))
+        cur, sep = "", newsep
+    while i < len(l):
+        c = l[i]
+        if q:
+            cur += c
+            if c == q:
+                q = None
+        elif c in "'\"":
+            q = c
+            cur += c
+        elif l.startswith("&&", i) or l.startswith("||", i):
+            cut(l[i:i + 2]); i += 1
+        elif c in ";|(":
+            cut(c)
+        else:
+            m = re.match(r"(then|do|else)\b", l[i:]) if (i == 0 or not (l[i - 1].isalnum() or l[i - 1] in "_-./")) else None
+            if m:
+                cut(m.group(1)); i += len(m.group(1)) - 1
+            else:
+                cur += c
+        i += 1
+    out.append((sep, cur))
+    return out
+def words_of(t):
+    try:
+        return shlex.split(t)
+    except ValueError:
+        return t.split()
+def command_of(words):
+    # the words from the command word on; for bash -c, the command string comes back as text
+    while words:
+        w = words[0]
+        if w in SKIP or re.match(r"[A-Za-z_][A-Za-z0-9_]*=", w):
             words = words[1:]
-        if words:
-            w = words[0].rstrip(";&)").strip("'\"")
-            if w == want or w.endswith("/" + want):
-                return True
+        elif w == "env":
+            words = words[1:]
+            while words and (words[0].startswith("-") or re.match(r"[A-Za-z_][A-Za-z0-9_]*=", words[0])):
+                words = words[2:] if words[0] == "-u" else words[1:]
+        elif w == "timeout":
+            words = words[1:]
+            while words and words[0].startswith("-"):
+                words = words[2:] if words[0] in ("-k", "-s") else words[1:]
+            if words and re.match(r"[0-9.]+[smhd]?$", words[0]):
+                words = words[1:]
+        elif w in ("bash", "sh"):
+            words = words[1:]
+            while words and words[0][:1] in "-+" and len(words[0]) > 1:
+                o = words[0]
+                if o == "--":
+                    words = words[1:]
+                    break
+                if o.startswith("-") and "c" in o[1:] and not o.startswith("--"):
+                    return ("string", words[1] if len(words) > 1 else "")
+                words = words[2:] if o in ("-o", "+o") else words[1:]
+        else:
+            break
+    return ("word", words[0].rstrip(")") if words else "")
+def executes(l):
+    segs = segments(strip_comment(l))
+    for i, (sep, text) in enumerate(segs):
+        kind, val = command_of(words_of(text))
+        if kind == "string":
+            hit = executes(val)
+        else:
+            hit = val == want or val.endswith("/" + want)
+        if not hit:
+            continue
+        nxt = segs[i + 1] if i + 1 < len(segs) else None
+        if nxt and nxt[0] == "||" and nxt[1].strip() in ("true", ":", "exit 0"):
+            continue
+        return True
     return False
+def drop_heredocs(lines):
+    out, end = [], None
+    for l in lines:
+        if end is not None:
+            if l.strip() == end:
+                end = None
+            continue
+        out.append(l)
+        m = re.search(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1", strip_comment(l))
+        if m and "<<<" not in l:
+            end = m.group(2)
+    return out
 def join_continued(lines):
     # a line ending in a backslash joins the next one
     out, acc = [], ""
@@ -122,9 +205,9 @@ def join_continued(lines):
 def is_off(v):
     return v is not None and re.sub(r"\s|\$\{\{|\}\}|'|\"", "", v) == "false"
 for st in steps:
-    if is_off(st["if"]) or is_off(st["job"]["if"]) or st["coe"]:
+    if is_off(st["if"]) or is_off(st["job"]["if"]) or st["coe"] or st["job"]["coe"]:
         continue
-    if any(executes(l) for l in join_continued(st["run"])):
+    if any(executes(l) for l in drop_heredocs(join_continued(st["run"]))):
         sys.exit(0)
 sys.exit(1)
 PY
