@@ -22,17 +22,31 @@ check() { local what=$1; shift; if "$@"; then ok "$what"; else bad "$what"; fi; 
 not() { ! "$@"; }
 # Read with python3's standard library only (the CI job has no PyYAML): a step starts at a
 # list item at the indent of the first one under `steps:`; comment lines are dropped; a step
-# whose `if:` is a literal false is skipped.
+# whose `if:`, or its job's, is a literal false (`false`, `${{ false }}`, `${{false}}`) is skipped.
 runs_in() {
 	python3 -I - "$1" "tests/$2" <<'PY'
 import re, sys
 path, want = sys.argv[1:3]
 steps, cur, step_indent, in_run = [], None, None, False
+job, job_indent, in_jobs = {"if": None}, None, False
 for raw in open(path):
     line = raw.rstrip("\n")
     if line.lstrip().startswith("#") or not line.strip():
         continue
     indent = len(line) - len(line.lstrip())
+    if indent == 0:
+        in_jobs, job_indent = line.startswith("jobs:"), None
+        continue
+    if in_jobs and job_indent is None:
+        job_indent = indent
+    if in_jobs and indent == job_indent:
+        job, cur, step_indent = {"if": None}, None, None
+        continue
+    if in_jobs and indent == job_indent + 2 and cur is None:
+        m = re.match(r"if:\s*(.*?)\s*(#.*)?$", line.strip())
+        if m:
+            job["if"] = m.group(1)
+            continue
     if line.lstrip().startswith("steps:"):
         step_indent, cur = None, None
         continue
@@ -40,7 +54,7 @@ for raw in open(path):
         if step_indent is None:
             step_indent = indent
         if indent == step_indent:
-            cur = {"if": None, "run": []}
+            cur = {"if": None, "run": [], "job": job}
             in_run = False
             steps.append(cur)
             line = " " * (indent + 2) + line.lstrip()[2:]
@@ -58,9 +72,10 @@ for raw in open(path):
         cur["run"].append(body)
         continue
     in_run = False
-off = {"false", "${{ false }}", "'false'", '"false"'}
+def is_off(v):
+    return v is not None and re.sub(r"\s|\$\{\{|\}\}|'|\"", "", v) == "false"
 for st in steps:
-    if st["if"] in off:
+    if is_off(st["if"]) or is_off(st["job"]["if"]):
         continue
     if any(want in l for l in st["run"]):
         sys.exit(0)
