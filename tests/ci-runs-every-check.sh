@@ -90,11 +90,30 @@ jobs:
         run: |
           # tests/incomment-check.sh
           true
+  off:
+    if: false
+    steps:
+      - name: in a disabled job
+        run: tests/joboff-check.sh
+  off2:
+    name: disabled the other way
+    if: ${{false}}
+    steps:
+      - name: in a job disabled with an expression
+        run: tests/jobexpr-check.sh
+  off3:
+    steps:
+      - name: step disabled with a spaceless expression
+        if: ${{false}}
+        run: tests/stepexpr-check.sh
 YML
 check "the matcher finds a live step" runs_in "$fx/ci.yml" live-check.sh
 check "the matcher finds a script inside a run block" runs_in "$fx/ci.yml" block-check.sh
 check "the matcher does not take a commented-out step" not runs_in "$fx/ci.yml" commented-check.sh
 check "the matcher does not take a step with if: false" not runs_in "$fx/ci.yml" disabled-check.sh
+check "the matcher does not take a step of a job with if: false" not runs_in "$fx/ci.yml" joboff-check.sh
+check "the matcher does not take a step of a job with if: \${{false}}" not runs_in "$fx/ci.yml" jobexpr-check.sh
+check "the matcher does not take a step with if: \${{false}}" not runs_in "$fx/ci.yml" stepexpr-check.sh
 check "the matcher does not take a comment inside a run block" not runs_in "$fx/ci.yml" incomment-check.sh
 
 for f in "$HERE"/*-check.sh; do
