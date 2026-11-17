@@ -126,6 +126,41 @@ jobs:
       - name: step disabled with a spaceless expression
         if: ${{false}}
         run: tests/stepexpr-check.sh
+  words:
+    steps:
+      - name: only named in an echo
+        run: echo tests/echoed-check.sh
+      - name: only named in a printf argument
+        run: printf '%s\n' tests/printed-check.sh
+      - name: only named in a trailing comment
+        run: true # tests/trailing-check.sh
+      - name: named in a comment inside a block, after a command
+        run: |
+          true # tests/blockcomment-check.sh
+      - name: never fails the job
+        continue-on-error: true
+        run: tests/coe-check.sh
+      - name: run with bash
+        run: bash tests/withbash-check.sh
+      - name: run after a separator
+        run: cd . && ./tests/chained-check.sh
+      - name: run in a block after an if
+        run: |
+          if true; then tests/inthen-check.sh; fi
+      - name: run by a quoted path in a hash-free string
+        run: sh "tests/quoted-check.sh"
+YML
+cat >"$fx/ci4.yml" <<'YML'
+jobs:
+    wide:
+        if: false
+        steps:
+            - name: in a job disabled in a four-space file
+              run: tests/wide-check.sh
+    live:
+        steps:
+            - name: live in a four-space file
+              run: tests/wide-live-check.sh
 YML
 check "the matcher finds a live step" runs_in "$fx/ci.yml" live-check.sh
 check "the matcher finds a script inside a run block" runs_in "$fx/ci.yml" block-check.sh
@@ -135,6 +170,17 @@ check "the matcher does not take a step of a job with if: false" not runs_in "$f
 check "the matcher does not take a step of a job with if: \${{false}}" not runs_in "$fx/ci.yml" jobexpr-check.sh
 check "the matcher does not take a step with if: \${{false}}" not runs_in "$fx/ci.yml" stepexpr-check.sh
 check "the matcher does not take a step of a job whose if: false follows its steps" not runs_in "$fx/ci.yml" joblate-check.sh
+check "the matcher does not take a step of a job with if: false in a four-space file" not runs_in "$fx/ci4.yml" wide-check.sh
+check "the matcher finds a live step in a four-space file" runs_in "$fx/ci4.yml" wide-live-check.sh
+check "the matcher does not take a name only in an echo" not runs_in "$fx/ci.yml" echoed-check.sh
+check "the matcher does not take a name only in a printf argument" not runs_in "$fx/ci.yml" printed-check.sh
+check "the matcher does not take a name only in a trailing comment" not runs_in "$fx/ci.yml" trailing-check.sh
+check "the matcher does not take a name only in a comment after a command in a block" not runs_in "$fx/ci.yml" blockcomment-check.sh
+check "the matcher does not take a step with continue-on-error" not runs_in "$fx/ci.yml" coe-check.sh
+check "the matcher finds bash tests/x" runs_in "$fx/ci.yml" withbash-check.sh
+check "the matcher finds ./tests/x after &&" runs_in "$fx/ci.yml" chained-check.sh
+check "the matcher finds tests/x after then" runs_in "$fx/ci.yml" inthen-check.sh
+check "the matcher finds a quoted path run with sh" runs_in "$fx/ci.yml" quoted-check.sh
 check "the matcher does not take a comment inside a run block" not runs_in "$fx/ci.yml" incomment-check.sh
 
 for f in "$HERE"/*-check.sh; do
