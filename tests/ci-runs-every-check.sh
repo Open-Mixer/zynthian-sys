@@ -22,8 +22,16 @@ check() { local what=$1; shift; if "$@"; then ok "$what"; else bad "$what"; fi; 
 #
 # a step runs the script when the script is executed: the command word of a segment of a run line
 # or block (read as the comment above `segments` says: separators, prefixes, bash -c, heredocs),
-# outside comments, not followed by || and anything but false or exit N (N not 0), in a step that is not switched off
-# (its if:, or its job's, is not a literal false) and whose step and job do not continue-on-error
+# outside comments, and its failure can fail the step, which runs under bash -e (sh -e in a
+# container) with no pipefail unless the step's, the job's or the workflow's shell says it, or the
+# block sets it earlier. So it does not count when it is
+#   - followed by || and anything but false, exit N (N not 0), or a { } or ( ) group ending in one;
+#   - followed by &, or by | without pipefail (the last command of a pipeline counts);
+#   - run as bash -n or sh -n (any option set holding n), which only reads it;
+# and not when its step is switched off (its if:, or its job's, is a literal false) or continues
+# on error (the step's, or the job's).
+# Known limits, left to the shared reader: `set +e` before the script; $(tests/x.sh) inside another
+# command; cond && tests/x.sh; a step with `shell: bash {0}` (no -e); a group spread over lines.
 not() { ! "$@"; }
 # Read with python3's standard library only (the CI job has no PyYAML): a step starts at a
 # list item at the indent of the first one under `steps:`; a job's own keys are at the indent of
@@ -33,7 +41,8 @@ runs_in() {
 import re, shlex, sys
 path, want = sys.argv[1:3]
 steps, cur, step_indent, in_run = [], None, None, False
-job, job_indent, in_jobs, job_key_indent = {"if": None, "coe": False}, None, False, None
+job, job_indent, in_jobs, job_key_indent = {"if": None, "coe": False, "pf": False}, None, False, None
+wf_pf = False
 for raw in open(path):
     line = raw.rstrip("\n")
     if line.lstrip().startswith("#") or not line.strip():
@@ -42,10 +51,16 @@ for raw in open(path):
     if indent == 0:
         in_jobs, job_indent = line.startswith("jobs:"), None
         continue
+    m = re.match(r"shell:\s*(.*)", line.strip())
+    if m and "pipefail" in m.group(1) and cur is None:
+        if in_jobs:
+            job["pf"] = True
+        else:
+            wf_pf = True
     if in_jobs and job_indent is None:
         job_indent = indent
     if in_jobs and indent == job_indent:
-        job, cur, step_indent, job_key_indent = {"if": None, "coe": False}, None, None, None
+        job, cur, step_indent, job_key_indent = {"if": None, "coe": False, "pf": False}, None, None, None
         continue
     if in_jobs and job_key_indent is None and indent > job_indent:
         job_key_indent = indent
@@ -64,7 +79,7 @@ for raw in open(path):
         if step_indent is None:
             step_indent = indent
         if indent == step_indent:
-            cur = {"if": None, "run": [], "job": job, "coe": False}
+            cur = {"if": None, "run": [], "job": job, "coe": False, "pf": False}
             in_run = False
             steps.append(cur)
             line = " " * (indent + 2) + line.lstrip()[2:]
@@ -76,6 +91,8 @@ for raw in open(path):
         cur["if"] = m.group(1)
     elif re.match(r"continue-on-error:\s*(true|\$\{\{\s*true\s*\}\})\s*(#.*)?$", body) and len(line) - len(line.lstrip()) == step_indent + 2:
         cur["coe"] = True
+    elif body.startswith("shell:") and "pipefail" in body and len(line) - len(line.lstrip()) == step_indent + 2:
+        cur["pf"] = True
     elif body.startswith("run:") and len(line) - len(line.lstrip()) == step_indent + 2:
         cur["run"].append(body[4:])
         in_run = True
@@ -120,6 +137,8 @@ def segments(l):
             cur += c
         elif l.startswith("&&", i) or l.startswith("||", i):
             cut(l[i:i + 2]); i += 1
+        elif c == "&" and l[i + 1:i + 2] != "&" and l[i - 1:i] not in (">", "<") and l[i + 1:i + 2] != ">":
+            cut("&")
         elif c in ";|(":
             cut(c)
         else:
@@ -159,25 +178,45 @@ def command_of(words):
                 if o == "--":
                     words = words[1:]
                     break
+                if o.startswith("-") and not o.startswith("--") and "n" in o[1:]:
+                    return ("word", "")
                 if o.startswith("-") and "c" in o[1:] and not o.startswith("--"):
                     return ("string", words[1] if len(words) > 1 else "")
                 words = words[2:] if o in ("-o", "+o") else words[1:]
         else:
             break
     return ("word", words[0].rstrip(")") if words else "")
-def executes(l):
+FAILS = re.compile(r"\s*(false|exit\s+[0-9]*[1-9][0-9]*)\s*")
+def fails_job(rhs):
+    # what follows ||: false or exit N (N not 0), alone or as the last command of a { } or ( ) group
+    rhs = rhs.strip()
+    if rhs[:1] in ("{", "("):
+        inner = rhs[1:].rstrip()
+        inner = inner[:-1] if inner[-1:] in ("}", ")") else inner
+        parts = [p for p in re.split(r";|\n", inner) if p.strip()]
+        return bool(parts) and FAILS.fullmatch(parts[-1]) is not None
+    return FAILS.fullmatch(rhs) is not None
+def executes(l, pf=False):
     segs = segments(strip_comment(l))
+    if re.search(r"\bset\b[^;&|\n]*[-+]\w*o\s+pipefail", l):
+        pf = True
     for i, (sep, text) in enumerate(segs):
         kind, val = command_of(words_of(text))
         if kind == "string":
-            hit = executes(val)
+            hit = executes(val, pf)
         else:
             hit = val == want or val.endswith("/" + want)
         if not hit:
             continue
         nxt = segs[i + 1] if i + 1 < len(segs) else None
-        if nxt and nxt[0] == "||" and not re.fullmatch(r"\s*(false|exit\s+[0-9]*[1-9][0-9]*)\s*", nxt[1]):
+        if nxt and nxt[0] == "&":
             continue
+        if nxt and nxt[0] == "|" and not pf:
+            continue
+        if nxt and nxt[0] == "||":
+            rhs = nxt[1] + "".join(sp + tx for sp, tx in segs[i + 2:])
+            if not fails_job(rhs):
+                continue
         return True
     return False
 def drop_heredocs(lines):
@@ -210,8 +249,12 @@ def is_off(v):
 for st in steps:
     if is_off(st["if"]) or is_off(st["job"]["if"]) or st["coe"] or st["job"]["coe"]:
         continue
-    if any(executes(l) for l in drop_heredocs(join_continued(st["run"]))):
-        sys.exit(0)
+    pf = wf_pf or st["job"]["pf"] or st["pf"]
+    for l in drop_heredocs(join_continued(st["run"])):
+        if re.search(r"\bset\b[^;&|\n]*[-+]\w*o\s+pipefail", l):
+            pf = True
+        if executes(l, pf):
+            sys.exit(0)
 sys.exit(1)
 PY
 }
