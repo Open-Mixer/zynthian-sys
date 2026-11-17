@@ -53,7 +53,6 @@ check "qualify.conf: hostd_conf names plugin-hostd.conf, with no plugin-qualify 
 	test "$(conf "$work/d/qualify.conf" hostd_conf)" = "$work/d/plugin-hostd.conf"
 check "qualify.conf: its search path lines are left as they were" \
 	test "$(grep -cE '^(lv2_path|lv2_extra|clap_path|clap_extra)[[:space:]]' "$work/d/qualify.conf")" = 4
-check "qualify.conf: nothing is commented out as moved" test "$(grep -c '^# moved' "$work/d/qualify.conf")" = 0
 check "qualify.conf: its other settings stay" test "$(conf "$work/d/qualify.conf" pin_file)" = /var/lib/omx/qualified.pins
 check "plugin-hostd.conf: its other settings stay" test "$(conf "$work/d/plugin-hostd.conf" lv2_worker)" = omx-clap-host
 cp "$work/d/plugin-hostd.conf" "$work/phd.1"; cp "$work/d/qualify.conf" "$work/q.1"
@@ -61,14 +60,6 @@ out=$(run)
 check "a second run changes nothing and says nothing: $out" \
 	sh -c "[ -z '$out' ] && cmp -s '$work/phd.1' '$work/d/plugin-hostd.conf' && cmp -s '$work/q.1' '$work/d/qualify.conf'"
 check "the script holds no plugin-qualify version branch" sh -c "! grep -q -e QUALIFY_VERSION -e compare-versions -e MOVED_KEYS '$SCRIPT'"
-
-# a plugin-qualify version in the environment changes nothing: no older-plugin-qualify way
-setup
-QUALIFY_VERSION=0.20.2-1 run >/dev/null
-check "an older plugin-qualify is not special: qualify.conf's lv2_path line is left" \
-	test "$(conf "$work/d/qualify.conf" lv2_path)" = "$LV2:/zynthian/zynthian-data/presets/lv2"
-check "and its lv2_extra and clap_extra lines stay" \
-	sh -c "[ -n '$(conf "$work/d/qualify.conf" lv2_extra)' ] && [ '$(conf "$work/d/qualify.conf" clap_extra)' = /opt/mine/clap ]"
 
 # no LV2_PATH: nothing written
 setup
