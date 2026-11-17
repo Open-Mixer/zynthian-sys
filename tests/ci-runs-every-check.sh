@@ -18,9 +18,11 @@ ok() { echo "ok   $*"; }
 bad() { fails=$((fails + 1)); echo "FAIL $*"; }
 check() { local what=$1; shift; if "$@"; then ok "$what"; else bad "$what"; fi; }
 
+# One shared reader for every repository is Open-Mixer/.github#111.
+#
 # a step runs the script when the script is executed: the command word of a segment of a run line
 # or block (read as the comment above `segments` says: separators, prefixes, bash -c, heredocs),
-# outside comments, not followed by || true, || : or || exit 0, in a step that is not switched off
+# outside comments, not followed by || and anything but false or exit N (N not 0), in a step that is not switched off
 # (its if:, or its job's, is not a literal false) and whose step and job do not continue-on-error
 not() { ! "$@"; }
 # Read with python3's standard library only (the CI job has no PyYAML): a step starts at a
@@ -95,7 +97,8 @@ def strip_comment(l):
             return l[:i]
     return l
 # Commands are read per segment: a line is split at && || ; | ( and the words then do else, outside
-# quotes; a segment followed by `|| true`, `|| :` or `|| exit 0` cannot fail the job and is dropped.
+# quotes; a segment followed by `||` and anything but `false` or `exit N` (N not 0) has its failure
+# taken by the branch, not the job, and is dropped.
 # Lines of a heredoc body are data. Before the command word these are skipped: VAR=value, and
 # source . exec sudo time command; env with its options and VAR=value; timeout with its options
 # and duration; bash and sh with their options (-c reads its string as a command line).
@@ -173,7 +176,7 @@ def executes(l):
         if not hit:
             continue
         nxt = segs[i + 1] if i + 1 < len(segs) else None
-        if nxt and nxt[0] == "||" and nxt[1].strip() in ("true", ":", "exit 0"):
+        if nxt and nxt[0] == "||" and not re.fullmatch(r"\s*(false|exit\s+[0-9]*[1-9][0-9]*)\s*", nxt[1]):
             continue
         return True
     return False
