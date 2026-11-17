@@ -22,16 +22,20 @@ check() { local what=$1; shift; if "$@"; then ok "$what"; else bad "$what"; fi; 
 #
 # a step runs the script when the script is executed: the command word of a segment of a run line
 # or block (read as the comment above `segments` says: separators, prefixes, bash -c, heredocs),
-# outside comments, and its failure can fail the step, which runs under bash -e (sh -e in a
-# container) with no pipefail unless the step's, the job's or the workflow's shell says it, or the
-# block sets it earlier. So it does not count when it is
+# outside comments, and its failure can fail the step. With no shell: key anywhere the step runs
+# under bash -e (sh -e without bash), no pipefail; an explicit shell: bash (the step's, else the
+# job's defaults, else the workflow's) runs as bash -eo pipefail, and shell: sh as sh -e. So it
+# does not count when it is
 #   - followed by || and anything but false, exit N (N not 0), or a { } or ( ) group ending in one;
-#   - followed by &, or by | without pipefail (the last command of a pipeline counts);
-#   - run as bash -n or sh -n (any option set holding n), which only reads it;
-# and not when its step is switched off (its if:, or its job's, is a literal false) or continues
-# on error (the step's, or the job's).
+#   - followed by &, or by | where pipefail is off (the last command of a pipeline counts);
+#   - after `set -n`, or run as bash -n or sh -n (any option set holding n), which only read it;
+# pipefail and -n follow the `set` commands (command word, outside quotes) that come before the
+# script, the last one winning, `set +o pipefail` turning it off. A bash -c string is read as a run
+# line of its own, with the state at that point. A script does not count when its step is switched
+# off (its if:, or its job's, is a literal false) or continues on error (the step's, or the job's).
 # Known limits, left to the shared reader: `set +e` before the script; $(tests/x.sh) inside another
-# command; cond && tests/x.sh; a step with `shell: bash {0}` (no -e); a group spread over lines.
+# command; cond && tests/x.sh; a step with a custom shell: without -e (bash {0}); a group spread
+# over lines; set inside a function, a group or a subshell.
 not() { ! "$@"; }
 # Read with python3's standard library only (the CI job has no PyYAML): a step starts at a
 # list item at the indent of the first one under `steps:`; a job's own keys are at the indent of
@@ -41,8 +45,8 @@ runs_in() {
 import re, shlex, sys
 path, want = sys.argv[1:3]
 steps, cur, step_indent, in_run = [], None, None, False
-job, job_indent, in_jobs, job_key_indent = {"if": None, "coe": False, "pf": False}, None, False, None
-wf_pf = False
+job, job_indent, in_jobs, job_key_indent = {"if": None, "coe": False, "shell": None}, None, False, None
+wf_shell = None
 for raw in open(path):
     line = raw.rstrip("\n")
     if line.lstrip().startswith("#") or not line.strip():
@@ -51,16 +55,16 @@ for raw in open(path):
     if indent == 0:
         in_jobs, job_indent = line.startswith("jobs:"), None
         continue
-    m = re.match(r"shell:\s*(.*)", line.strip())
-    if m and "pipefail" in m.group(1) and cur is None:
+    m = re.match(r"shell:\s*(.*?)\s*(#.*)?$", line.strip())
+    if m and cur is None:
         if in_jobs:
-            job["pf"] = True
+            job["shell"] = m.group(1).strip("'\"")
         else:
-            wf_pf = True
+            wf_shell = m.group(1).strip("'\"")
     if in_jobs and job_indent is None:
         job_indent = indent
     if in_jobs and indent == job_indent:
-        job, cur, step_indent, job_key_indent = {"if": None, "coe": False, "pf": False}, None, None, None
+        job, cur, step_indent, job_key_indent = {"if": None, "coe": False, "shell": None}, None, None, None
         continue
     if in_jobs and job_key_indent is None and indent > job_indent:
         job_key_indent = indent
@@ -79,7 +83,7 @@ for raw in open(path):
         if step_indent is None:
             step_indent = indent
         if indent == step_indent:
-            cur = {"if": None, "run": [], "job": job, "coe": False, "pf": False}
+            cur = {"if": None, "run": [], "job": job, "coe": False, "shell": None}
             in_run = False
             steps.append(cur)
             line = " " * (indent + 2) + line.lstrip()[2:]
@@ -91,8 +95,8 @@ for raw in open(path):
         cur["if"] = m.group(1)
     elif re.match(r"continue-on-error:\s*(true|\$\{\{\s*true\s*\}\})\s*(#.*)?$", body) and len(line) - len(line.lstrip()) == step_indent + 2:
         cur["coe"] = True
-    elif body.startswith("shell:") and "pipefail" in body and len(line) - len(line.lstrip()) == step_indent + 2:
-        cur["pf"] = True
+    elif body.startswith("shell:") and len(line) - len(line.lstrip()) == step_indent + 2:
+        cur["shell"] = re.sub(r"\s+#.*$", "", body[6:].strip()).strip("'\"")
     elif body.startswith("run:") and len(line) - len(line.lstrip()) == step_indent + 2:
         cur["run"].append(body[4:])
         in_run = True
@@ -196,22 +200,36 @@ def fails_job(rhs):
         parts = [p for p in re.split(r";|\n", inner) if p.strip()]
         return bool(parts) and FAILS.fullmatch(parts[-1]) is not None
     return FAILS.fullmatch(rhs) is not None
-def executes(l, pf=False):
+def set_state(words, state):
+    # `set`: -o/+o pipefail turn it on/off, -n stops running commands, +n starts again; the last wins
+    i = 1
+    while i < len(words):
+        w = words[i]
+        m = re.fullmatch(r"([-+])\w*o", w)
+        if m and words[i + 1:i + 2] == ["pipefail"]:
+            state["pf"] = m.group(1) == "-"
+            i += 1
+        elif re.fullmatch(r"[-+]\w+", w) and "n" in w:
+            state["n"] = w[0] == "-"
+        i += 1
+def executes(l, state):
     segs = segments(strip_comment(l))
-    if re.search(r"\bset\b[^;&|\n]*[-+]\w*o\s+pipefail", l):
-        pf = True
     for i, (sep, text) in enumerate(segs):
-        kind, val = command_of(words_of(text))
+        words = words_of(text)
+        if words[:1] == ["set"]:
+            set_state(words, state)
+            continue
+        kind, val = command_of(words)
         if kind == "string":
-            hit = executes(val, pf)
+            hit = executes(val, dict(state))
         else:
             hit = val == want or val.endswith("/" + want)
-        if not hit:
+        if not hit or state["n"]:
             continue
         nxt = segs[i + 1] if i + 1 < len(segs) else None
         if nxt and nxt[0] == "&":
             continue
-        if nxt and nxt[0] == "|" and not pf:
+        if nxt and nxt[0] == "|" and not state["pf"]:
             continue
         if nxt and nxt[0] == "||":
             rhs = nxt[1] + "".join(sp + tx for sp, tx in segs[i + 2:])
@@ -219,6 +237,14 @@ def executes(l, pf=False):
                 continue
         return True
     return False
+def shell_pipefail(shell):
+    # an explicit shell: bash runs as bash --noprofile --norc -eo pipefail {0}; sh as sh -e {0};
+    # with no shell: key the default is bash -e {0} (sh -e {0} without bash): no pipefail
+    if shell is None:
+        return False
+    if shell in ("bash", "sh", "pwsh", "python"):
+        return shell == "bash"
+    return "pipefail" in shell
 def drop_heredocs(lines):
     out, end = [], None
     for l in lines:
@@ -249,11 +275,9 @@ def is_off(v):
 for st in steps:
     if is_off(st["if"]) or is_off(st["job"]["if"]) or st["coe"] or st["job"]["coe"]:
         continue
-    pf = wf_pf or st["job"]["pf"] or st["pf"]
+    state = {"pf": shell_pipefail(st["shell"] or st["job"]["shell"] or wf_shell), "n": False}
     for l in drop_heredocs(join_continued(st["run"])):
-        if re.search(r"\bset\b[^;&|\n]*[-+]\w*o\s+pipefail", l):
-            pf = True
-        if executes(l, pf):
+        if executes(l, state):
             sys.exit(0)
 sys.exit(1)
 PY
