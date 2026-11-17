@@ -207,6 +207,48 @@ jobs:
             tests/contecho-check.sh
       - name: run by a quoted path in a hash-free string
         run: sh "tests/quoted-check.sh"
+  more:
+    steps:
+      - name: masked with true
+        run: tests/ortrue-check.sh || true
+      - name: masked with a colon
+        run: tests/orcolon-check.sh || :
+      - name: masked with exit 0
+        run: tests/orexit-check.sh || exit 0
+      - name: inside a heredoc body
+        run: |
+          cat <<EOF
+          tests/heredoc-check.sh
+          EOF
+      - name: after a heredoc
+        run: |
+          cat <<'EOF'
+          data
+          EOF
+          tests/afterheredoc-check.sh
+      - name: after a separator inside double quotes
+        run: echo "a; tests/dqsep-check.sh"
+      - name: after a separator inside single quotes
+        run: echo 'a && tests/sqsep-check.sh'
+      - name: with env
+        run: env X=1 tests/env-check.sh
+      - name: with command
+        run: command tests/command-check.sh
+      - name: with timeout
+        run: timeout 60 tests/timeout-check.sh
+      - name: with timeout options
+        run: timeout -k 5 60 tests/timeoutk-check.sh
+      - name: with bash options
+        run: bash -e tests/bashe-check.sh
+      - name: with bash -c
+        run: bash -c 'tests/bashc-check.sh'
+      - name: with bash -c after options
+        run: bash -ex -o pipefail tests/bashopt-check.sh
+  coejob:
+    continue-on-error: true
+    steps:
+      - name: in a job that never fails
+        run: tests/jobcoe-check.sh
 YML
 cat >"$fx/ci4.yml" <<'YML'
 jobs:
@@ -242,6 +284,21 @@ check "the matcher finds a script on the line after a backslash in a block" runs
 check "the matcher finds a script on the continuation of a one-line run" runs_in "$fx/ci.yml" continued1-check.sh
 check "the matcher does not take an echo argument on a continuation line" not runs_in "$fx/ci.yml" contecho-check.sh
 check "the matcher finds a quoted path run with sh" runs_in "$fx/ci.yml" quoted-check.sh
+check "the matcher does not take a script masked with || true" not runs_in "$fx/ci.yml" ortrue-check.sh
+check "the matcher does not take a script masked with || :" not runs_in "$fx/ci.yml" orcolon-check.sh
+check "the matcher does not take a script masked with || exit 0" not runs_in "$fx/ci.yml" orexit-check.sh
+check "the matcher does not take a step of a job with continue-on-error" not runs_in "$fx/ci.yml" jobcoe-check.sh
+check "the matcher does not take a script in a heredoc body" not runs_in "$fx/ci.yml" heredoc-check.sh
+check "the matcher finds a script after a heredoc" runs_in "$fx/ci.yml" afterheredoc-check.sh
+check "the matcher does not take a ; inside double quotes as a separator" not runs_in "$fx/ci.yml" dqsep-check.sh
+check "the matcher does not take a && inside single quotes as a separator" not runs_in "$fx/ci.yml" sqsep-check.sh
+check "the matcher finds a script run with env" runs_in "$fx/ci.yml" env-check.sh
+check "the matcher finds a script run with command" runs_in "$fx/ci.yml" command-check.sh
+check "the matcher finds a script run with timeout" runs_in "$fx/ci.yml" timeout-check.sh
+check "the matcher finds a script run with timeout options" runs_in "$fx/ci.yml" timeoutk-check.sh
+check "the matcher finds a script run with bash options" runs_in "$fx/ci.yml" bashe-check.sh
+check "the matcher finds a script run with bash -c" runs_in "$fx/ci.yml" bashc-check.sh
+check "the matcher finds a script run with bash -ex -o pipefail" runs_in "$fx/ci.yml" bashopt-check.sh
 check "the matcher does not take a comment inside a run block" not runs_in "$fx/ci.yml" incomment-check.sh
 
 for f in "$HERE"/*-check.sh; do
