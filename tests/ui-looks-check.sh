@@ -1,7 +1,8 @@
 #!/bin/bash
 #******************************************************************************
 # The UI looks in config/ui-looks: each sets the sixteen ZYNTHIAN_UI_COLOR_*,
-# the font and the main menu grid's six ZYNTHIAN_UI_COLOR_GRID_*, in one order;
+# the font, the main menu grid's six ZYNTHIAN_UI_COLOR_GRID_* and ZYNTHIAN_UI_LOOK (how the
+# controller widgets are drawn), in one order;
 # stock.sh is zynthian-ui's own defaults (read from the zynthian_gui_config.py
 # given in ZYNTHIAN_GUI_CONFIG; a default that names another colour is that
 # colour's default), so stock draws as upstream Zynthian does; the OpenMixer
@@ -28,14 +29,14 @@ ZYNTHIAN_UI_COLOR_LOW_ON ZYNTHIAN_UI_COLOR_HL ZYNTHIAN_UI_COLOR_ML ZYNTHIAN_UI_C
 ZYNTHIAN_UI_COLOR_INFO ZYNTHIAN_UI_COLOR_MIDI ZYNTHIAN_UI_COLOR_ALT ZYNTHIAN_UI_COLOR_ALT2 ZYNTHIAN_UI_COLOR_ERROR
 ZYNTHIAN_UI_COLOR_WARN ZYNTHIAN_UI_FONT_FAMILY
 ZYNTHIAN_UI_COLOR_GRID_BG ZYNTHIAN_UI_COLOR_GRID_TILE ZYNTHIAN_UI_COLOR_GRID_TILE_OFF ZYNTHIAN_UI_COLOR_GRID_TX
-ZYNTHIAN_UI_COLOR_GRID_TX_OFF ZYNTHIAN_UI_COLOR_GRID_SEL"
+ZYNTHIAN_UI_COLOR_GRID_TX_OFF ZYNTHIAN_UI_COLOR_GRID_SEL ZYNTHIAN_UI_LOOK"
 GRID="ZYNTHIAN_UI_COLOR_GRID_BG ZYNTHIAN_UI_COLOR_GRID_TILE ZYNTHIAN_UI_COLOR_GRID_TILE_OFF ZYNTHIAN_UI_COLOR_GRID_TX
 ZYNTHIAN_UI_COLOR_GRID_TX_OFF ZYNTHIAN_UI_COLOR_GRID_SEL"
 want=$(echo $KEYS | tr ' ' '\n')
 
 # --- the files
 for f in stock openmixer-vintage; do
-	check "$f.sh sets the sixteen colours, the font and the six grid colours, in order" test "$(keys "$LOOKS/$f.sh" 2>/dev/null)" = "$want"
+	check "$f.sh sets the sixteen colours, the font, the six grid colours and ZYNTHIAN_UI_LOOK, in order" test "$(keys "$LOOKS/$f.sh" 2>/dev/null)" = "$want"
 done
 check "every look names itself on its first line" \
 	bash -c 'for f in "$1"/*.sh; do head -n 1 "$f" | grep -q "^# [A-Za-z]"; done' _ "$LOOKS"
@@ -95,13 +96,23 @@ check "a second run changes nothing" cmp -s "$E" "$work/once"
 look stock "$E"
 same=1
 for k in $KEYS; do [ -n "$(val "$E" "$k")" ] && [ "$(val "$E" "$k")" = "$(val "$LOOKS/stock.sh" "$k")" ] || same=0; done
-check "a look chosen by name sets all twenty-three, a hand change included" test $same = 1
+check "a look chosen by name sets all twenty-four, a hand change included" test $same = 1
 check "each key once" bash -c 'for k in $2; do [ "$(grep -c "^export $k=" "$1")" = 1 ] || exit 1; done' _ "$E" "$KEYS"
+
+# choosing a look chooses the drawing too: the colours and ZYNTHIAN_UI_LOOK in one switch, both ways
+check "stock.sh draws stock and vintage draws vintage" \
+	test "$(val "$LOOKS/stock.sh" ZYNTHIAN_UI_LOOK)" = stock -a "$(val "$V" ZYNTHIAN_UI_LOOK)" = vintage
+for pair in openmixer-vintage:vintage stock:stock openmixer-vintage:vintage; do
+	envars; echo 'export ZYNTHIAN_UI_LOOK="vintage-stale"' >> "$E"
+	look "${pair%%:*}" "$E"
+	check "applying ${pair%%:*} leaves ZYNTHIAN_UI_LOOK=${pair##*:}, once" \
+		test "$(val "$E" ZYNTHIAN_UI_LOOK)" = "${pair##*:}" -a "$(grep -c '^export ZYNTHIAN_UI_LOOK=' "$E")" = 1
+done
 
 # an install whose look predates the grid keys re-picks its look once: it gets the look's whole token set
 grep -v '_GRID_' "$V" > "$E"; echo 'export ZYNTHIAN_UI_POWER_SAVE_MINUTES="60"' >> "$E"
 look openmixer-vintage "$E"
-check "re-picking vintage on an install without the grid keys writes all twenty-three of vintage's" \
+check "re-picking vintage on an install without the grid keys writes all twenty-four of vintage's" \
 	bash -c 'for k in $3; do [ -n "$(grep "^export $k=" "$2")" ] && [ "$(grep "^export $k=" "$1")" = "$(grep "^export $k=" "$2")" ] || exit 1; done' _ "$E" "$V" "$KEYS"
 check "--complete is no option: refused, nothing written" bash -c 'cp "$1" "$1.b"; ZYNTHIAN_SYS_DIR="$2" bash "$3" --complete "$1" >/dev/null 2>&1; rc=$?; [ $rc = 2 ] && cmp -s "$1" "$1.b"' _ "$E" "$HERE/.." "$SCRIPT"
 check "the recipe runs no look completion" bash -c '! grep -q -- "--complete" "$1"' _ "$HERE/../scripts/recipes/install_openmixer.sh"
