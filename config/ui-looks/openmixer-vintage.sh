@@ -1,6 +1,6 @@
 # OpenMixer vintage: the console default look (dark, orange, aluminium, vintage) for Zynthian.
 # GENERATED from the console tokens; do not edit by hand.
-# pin sha256:e3fa9ddbe05e01317004a99044a845eb34570d813bb13f491145316afce09406 (sha256 of KEY=value lines below, in order)
+# pin sha256:cd5eba0c5839a02df1716151f0fac24545592f9cc2a28266254e8982591db158 (sha256 of KEY=value lines below, in order)
 export ZYNTHIAN_UI_COLOR_BG="#0b0e11"
 export ZYNTHIAN_UI_COLOR_TX="#eaf0f4"
 export ZYNTHIAN_UI_COLOR_TX_OFF="#8a97a3"
@@ -24,3 +24,4 @@ export ZYNTHIAN_UI_COLOR_GRID_TILE_OFF="#242b33"
 export ZYNTHIAN_UI_COLOR_GRID_TX="#eaf0f4"
 export ZYNTHIAN_UI_COLOR_GRID_TX_OFF="#8a97a3"
 export ZYNTHIAN_UI_COLOR_GRID_SEL="#e8732c"
+export ZYNTHIAN_UI_LOOK="vintage"
