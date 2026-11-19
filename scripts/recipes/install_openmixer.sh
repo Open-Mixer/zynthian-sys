@@ -19,7 +19,7 @@
 # - the OpenMixer vintage UI look and its font (fonts-inter), once; a colour
 #   chosen by hand stays.
 # - an apt hook that keeps the MOD GUI look chosen with
-#   sbin/omx-modgui-look.sh after a package update, and the look again now.
+#   sbin/omx-modgui-look.sh after a package update (omx-modgui-sync), and now.
 #
 # Each of these is done once: the steps done are listed in
 # $ZYNTHIAN_CONFIG_DIR/openmixer-defaults. A config that exists is not changed.
@@ -259,22 +259,24 @@ if ! is_done ui-look && [ -f "$ENVARS" ]; then
 	mark_done ui-look
 fi
 
-# The MOD GUI look (sbin/omx-modgui-look.sh, /etc/omx/modgui-look): a package
-# update ships omx-plugins' bundles in the default look, so after every dpkg run
-# apt runs --apply, which regenerates them in the recorded look when
-# omx-plugins-lv2 changed and does nothing otherwise; it never fails apt. Not a
-# step done once: the hook names this tree, and is put back at every run.
+# The MOD GUI look (sbin/omx-modgui-look.sh, /etc/omx/modgui-look): omx-plugins
+# ships no MOD GUI; omx-modgui-sync (omx-panel) writes the bundles in
+# /usr/local/lib/lv2 in the recorded look. After every dpkg run apt runs
+# --apply, which runs omx-modgui-sync when omx-plugins-lv2 changed (its plugins
+# come and go) and does nothing otherwise; the package's own bundles are never
+# written, and it never fails apt. Not a step done once: the hook names this
+# tree, and is put back at every run.
 APT_HOOK=${APT_HOOK:-/etc/apt/apt.conf.d/90omx-modgui-look}
 hook="DPkg::Post-Invoke { \"if [ -x $ZYNTHIAN_SYS_DIR/sbin/omx-modgui-look.sh ]; then $ZYNTHIAN_SYS_DIR/sbin/omx-modgui-look.sh --apply || true; fi\"; };"
 if [ "$(cat "$APT_HOOK" 2>/dev/null)" != "$hook" ]; then
 	if echo "$hook" > "$APT_HOOK"; then
 		change "apt hook $APT_HOOK: the MOD GUI look survives package updates"
 	else
-		note "could not write $APT_HOOK: a package update puts the MOD GUIs back in the default look"
+		note "could not write $APT_HOOK: a package update leaves new omx-plugins without a MOD GUI until omx-modgui-sync runs"
 	fi
 fi
 if out=$("$ZYNTHIAN_SYS_DIR/sbin/omx-modgui-look.sh" --apply 2>&1); then
-	case "$out" in *regenerated*) change "$out" ;; esac
+	case "$out" in *applied*) change "$out" ;; esac
 else
 	note "MOD GUI look: $out"
 fi
