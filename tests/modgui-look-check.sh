@@ -124,12 +124,11 @@ check "  ... the recorded look stays" test "$(cat "$T/etc/modgui-look")" = conso
 check "  ... the package's own bundles are not written" untouched
 
 # --- a sync that fails PART WAY: the bundles it already rewrote wear the new look, so it is put back
-before=$(grep -c . "$CALLS")
 rm -f "$FAILED_ONCE"; SYNC_FAIL_AFTER=1 FAILED_ONCE=$FAILED_ONCE run 3d
 check "a sync that fails after one bundle exits 1" rc 1
 check "  ... the recorded look is back to console" test "$(cat "$T/etc/modgui-look")" = console
-check "  ... a second sync ran in the old look (two calls)" test "$(( $(grep -c . "$CALLS") - before ))" = 2
-check "  ... every bundle wears console again" test "$(looks)" = "console console console"
+check "  ... a second sync ran in the old look (two calls)" test "$(nsync)" = 2
+check "  ... every bundle wears console again" test "$(looks)" = "console console console "
 check "  ... the restore left no .tmp file" test ! -e "$T/etc/modgui-look.tmp"
 
 # --- --apply after a package update (the apt hook)

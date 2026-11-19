@@ -63,8 +63,10 @@ set_look() {
 	mkdir -p "$(dirname "$LOOK_FILE")" "$(dirname "$STAMP")"
 	{ echo "$look" > "$LOOK_FILE.tmp" && mv "$LOOK_FILE.tmp" "$LOOK_FILE"; } || die "could not write $LOOK_FILE"
 	if ! out=$(run_sync 2>&1); then
-		if [ -n "$prev" ]; then echo "$prev" > "$LOOK_FILE"; else rm -f "$LOOK_FILE"; fi
-		die "omx-modgui-sync failed, the look stays ${prev:-the default}: $out"
+		# the setting goes back (atomically), and the bundles the sync rewrote before it failed are made again in it
+		if [ -n "$prev" ]; then echo "$prev" > "$LOOK_FILE.tmp" && mv "$LOOK_FILE.tmp" "$LOOK_FILE"; else rm -f "$LOOK_FILE"; fi
+		if run_sync >/dev/null 2>&1; then again="its bundles were made again in it"; else again="its bundles could NOT be made again in it: run omx-modgui-sync"; fi
+		die "omx-modgui-sync failed, the look stays ${prev:-the default} ($again): $out"
 	fi
 	echo "$look $(version)" > "$STAMP"
 	echo "modgui-look $look: applied by omx-modgui-sync; MOD-UI shows it from its next start"
