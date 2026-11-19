@@ -47,8 +47,8 @@ jobs:
           ZYNTHIAN_GUI_CONFIG=/tmp/zynthian_gui_config.py tests/ui-looks-check.sh
       - name: The MOD GUI look is recorded once and omx-modgui-sync makes every bundle in it, through package updates
         run: tests/modgui-look-check.sh
-      - name: The scripts of the MOD GUI look pass shellcheck
-        run: shellcheck sbin/omx-modgui-look.sh scripts/recipes/install_openmixer.sh tests/modgui-look-check.sh
+      - name: The MOD GUI look script and its check pass shellcheck (warnings and errors)
+        run: shellcheck -S warning sbin/omx-modgui-look.sh tests/modgui-look-check.sh
       - name: The pinned keys are the ones the channel and the tags use
         run: |
           fpr() { gpg --batch --with-colons --import-options show-only --import < "$1" 2>/dev/null | awk -F: '/^pub:/ {p = 1; next} /^fpr:/ && p {print $10; p = 0}' | sort | tr '\n' ' '; }

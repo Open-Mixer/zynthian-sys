@@ -58,10 +58,10 @@ set_look() {
 	local look=$1 values prev out
 	values=$(setting values) || exit 1
 	grep -qxF -- "$look" <<<"$values" ||
-		die "'$look' is not a MOD GUI look omx-panel declares ($(echo $values))" 2
+		die "'$look' is not a MOD GUI look omx-panel declares (${values//$'\n'/ })" 2
 	prev=$(recorded) || prev=
 	mkdir -p "$(dirname "$LOOK_FILE")" "$(dirname "$STAMP")"
-	echo "$look" > "$LOOK_FILE.tmp" && mv "$LOOK_FILE.tmp" "$LOOK_FILE" || die "could not write $LOOK_FILE"
+	{ echo "$look" > "$LOOK_FILE.tmp" && mv "$LOOK_FILE.tmp" "$LOOK_FILE"; } || die "could not write $LOOK_FILE"
 	if ! out=$(run_sync 2>&1); then
 		if [ -n "$prev" ]; then echo "$prev" > "$LOOK_FILE"; else rm -f "$LOOK_FILE"; fi
 		die "omx-modgui-sync failed, the look stays ${prev:-the default}: $out"
