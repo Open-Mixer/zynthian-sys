@@ -25,7 +25,7 @@ jobs:
       image: debian:trixie
     steps:
       - name: Install the tools
-        run: apt-get update -qq && apt-get install -y --no-install-recommends git gnupg gpgv curl ca-certificates systemd python3 procps
+        run: apt-get update -qq && apt-get install -y --no-install-recommends git gnupg gpgv curl ca-certificates systemd python3 procps shellcheck
       - uses: actions/checkout@v4
       - name: The updater takes only our signed release tags, and never rewinds
         run: tests/omx-release-tags-check.sh
@@ -45,8 +45,10 @@ jobs:
         run: |
           curl -fsSL https://raw.githubusercontent.com/Open-Mixer/zynthian-ui/openmixer/zyngui/zynthian_gui_config.py > /tmp/zynthian_gui_config.py
           ZYNTHIAN_GUI_CONFIG=/tmp/zynthian_gui_config.py tests/ui-looks-check.sh
-      - name: The MOD GUI look is recorded once and every omx-plugins bundle follows it, through package updates
+      - name: The MOD GUI look is recorded once and omx-modgui-sync makes every bundle in it, through package updates
         run: tests/modgui-look-check.sh
+      - name: The scripts of the MOD GUI look pass shellcheck
+        run: shellcheck sbin/omx-modgui-look.sh scripts/recipes/install_openmixer.sh tests/modgui-look-check.sh
       - name: The pinned keys are the ones the channel and the tags use
         run: |
           fpr() { gpg --batch --with-colons --import-options show-only --import < "$1" 2>/dev/null | awk -F: '/^pub:/ {p = 1; next} /^fpr:/ && p {print $10; p = 0}' | sort | tr '\n' ' '; }
