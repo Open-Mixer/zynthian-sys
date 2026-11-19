@@ -19,6 +19,7 @@ SCRIPT=${SCRIPT:-$HERE/../sbin/omx-modgui-look.sh}
 RECIPE=$HERE/../scripts/recipes/install_openmixer.sh
 
 fails=0
+FAILED_ONCE="${TMPDIR:-/tmp}/modgui-look-failed-once.$$"; export FAILED_ONCE
 ok() { echo "ok   $*"; }
 bad() { fails=$((fails + 1)); echo "FAIL $*"; }
 check() { local what=$1; shift; if "$@"; then ok "$what"; else bad "$what"; fi; }
@@ -59,6 +60,10 @@ for n in a b c; do
 	d=$MODGUI_DIR/omx-modgui-$n.lv2
 	mkdir -p "$d" && printf 'urn:%s\n--installed omx-plugins/%s --look %s\n' "$n" "$n" "$look" > "$d/.omx-modgui-sync"
 	echo "${look:-default}" > "$d/look"
+	# SYNC_FAIL_AFTER=1: the FIRST call dies after one bundle (the later ones are fine)
+	if [ "${SYNC_FAIL_AFTER:-}" = 1 ] && [ ! -e "$FAILED_ONCE" ]; then
+		: > "$FAILED_ONCE"; echo "omx-modgui-sync: no space left on device" >&2; exit 1
+	fi
 done
 echo "omx-modgui-sync: 3 written, 0 up to date, 0 ship their own, 0 without a descriptor, 0 without controls, 0 with nothing to draw, 0 removed, 0 could not be drawn"
 EOF
@@ -117,6 +122,15 @@ check "a sync that fails exits 1" rc 1
 check "  ... naming omx-modgui-sync's reason" grep -q "python3-lilv" "$T/out"
 check "  ... the recorded look stays" test "$(cat "$T/etc/modgui-look")" = console
 check "  ... the package's own bundles are not written" untouched
+
+# --- a sync that fails PART WAY: the bundles it already rewrote wear the new look, so it is put back
+before=$(grep -c . "$CALLS")
+rm -f "$FAILED_ONCE"; SYNC_FAIL_AFTER=1 FAILED_ONCE=$FAILED_ONCE run 3d
+check "a sync that fails after one bundle exits 1" rc 1
+check "  ... the recorded look is back to console" test "$(cat "$T/etc/modgui-look")" = console
+check "  ... a second sync ran in the old look (two calls)" test "$(( $(grep -c . "$CALLS") - before ))" = 2
+check "  ... every bundle wears console again" test "$(looks)" = "console console console"
+check "  ... the restore left no .tmp file" test ! -e "$T/etc/modgui-look.tmp"
 
 # --- --apply after a package update (the apt hook)
 run --apply
