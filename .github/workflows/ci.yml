@@ -71,9 +71,9 @@ jobs:
         run: tests/omx-packages-check.sh
 
   default-install:
-    # amd64: the check expects the image hook to refuse on a machine that is not arm64
-    name: OpenMixer is the default install (debian:trixie amd64)
-    runs-on: ubuntu-latest
+    # arm64: the OpenMixer debs (plugin-hostd and its contract) are served for trixie arm64 only; no trixie amd64 is published
+    name: OpenMixer is the default install (debian:trixie arm64)
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     container:
       image: debian:trixie
