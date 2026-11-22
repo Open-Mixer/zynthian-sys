@@ -189,7 +189,7 @@ elif [ ${MACHINE_HW_NAME} = "x86_64" ]; then
 fi
 # $ZYNTHIAN_MY_DATA_DIR/plugins/lv2 holds the user's plugins (config/qualify.conf
 # lists it too). The MOD GUIs made by omx-modgui-sync (omx-panel) go to /usr/local/lib/lv2, the third entry
-LV2_PATH="/usr/lib/lv2:/usr/lib/$arch_libdir/lv2:/usr/local/lib/lv2:/usr/local/lib/$arch_libdir/lv2:$ZYNTHIAN_PLUGINS_DIR/lv2:$ZYNTHIAN_MY_DATA_DIR/plugins/lv2:$ZYNTHIAN_PLUGINS_DIR/lv2-presets:$ZYNTHIAN_DATA_DIR/presets/lv2:$ZYNTHIAN_MY_DATA_DIR/presets/lv2"
+LV2_PATH="/usr/lib/lv2:/usr/lib/$arch_libdir/lv2:/usr/local/lib/lv2:/usr/local/lib/$arch_libdir/lv2:$ZYNTHIAN_PLUGINS_DIR/lv2:$ZYNTHIAN_MY_DATA_DIR/plugins/lv2:$ZYNTHIAN_PLUGINS_DIR/lv2-presets:$ZYNTHIAN_PLUGINS_DIR/lv2-widgets:$ZYNTHIAN_UI_DIR/lv2:$ZYNTHIAN_DATA_DIR/presets/lv2:$ZYNTHIAN_MY_DATA_DIR/presets/lv2"
 LV2_PATH_ESC=${LV2_PATH//\//\\\/}
 sed -i -e "s/^export LV2_PATH\=.*$/export LV2_PATH=\"$LV2_PATH_ESC\"/" $ZYNTHIAN_CONFIG_DIR/zynthian_envars.sh
 
@@ -499,6 +499,12 @@ fi
 
 # => Xsession config
 cp -an $ZYNTHIAN_SYS_DIR/etc/xsessionrc /root/.xsessionrc
+
+# => KasmVNC session (containers): UI alone on display :0, standard X session (processor GUIs) on :1
+if [ -x /usr/bin/kasmvncserver ]; then
+	mkdir -p /root/.vnc
+	cp -a $ZYNTHIAN_SYS_DIR/etc/kasmvnc/xstartup /root/.vnc/xstartup
+fi
 
 # => Xfce4 config
 rsync -r --del $ZYNTHIAN_SYS_DIR/etc/xfce4.config/ /root/.config/xfce4/
