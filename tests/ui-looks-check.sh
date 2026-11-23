@@ -2,7 +2,9 @@
 #******************************************************************************
 # The UI looks in config/ui-looks: each sets the sixteen ZYNTHIAN_UI_COLOR_*,
 # the font, the main menu grid's six ZYNTHIAN_UI_COLOR_GRID_* and ZYNTHIAN_UI_LOOK (how the
-# controller widgets are drawn), in one order;
+# controller widgets are drawn), in one order; the vintage look also sets the seven tokens of its Tk drawing
+# (zynthian-ui#93: the knob's metal and the switch's pill, from the console's aluminium finish) before
+# ZYNTHIAN_UI_LOOK, and stock carries none: stock does not read them;
 # stock.sh is zynthian-ui's own defaults (read from the zynthian_gui_config.py
 # given in ZYNTHIAN_GUI_CONFIG; a default that names another colour is that
 # colour's default), so stock draws as upstream Zynthian does; the OpenMixer
@@ -32,16 +34,26 @@ ZYNTHIAN_UI_COLOR_GRID_BG ZYNTHIAN_UI_COLOR_GRID_TILE ZYNTHIAN_UI_COLOR_GRID_TIL
 ZYNTHIAN_UI_COLOR_GRID_TX_OFF ZYNTHIAN_UI_COLOR_GRID_SEL ZYNTHIAN_UI_LOOK"
 GRID="ZYNTHIAN_UI_COLOR_GRID_BG ZYNTHIAN_UI_COLOR_GRID_TILE ZYNTHIAN_UI_COLOR_GRID_TILE_OFF ZYNTHIAN_UI_COLOR_GRID_TX
 ZYNTHIAN_UI_COLOR_GRID_TX_OFF ZYNTHIAN_UI_COLOR_GRID_SEL"
+# the Tk drawing's tokens: the console's aluminium finish (omx-panel's tools/look.json, console.finish.aluminium, from
+# the console pin 67b4d542): --knob-face, --knob-edge, --knob-cap-hi, --knob-knurl, and --knob-pointer of tokens.css;
+# the pill is --btn-face (the track) and --toggle-face (the thumb)
+TOKENS="ZYNTHIAN_UI_COLOR_KNOB_FACE ZYNTHIAN_UI_COLOR_KNOB_EDGE ZYNTHIAN_UI_COLOR_KNOB_CAP_HI ZYNTHIAN_UI_COLOR_KNOB_KNURL
+ZYNTHIAN_UI_COLOR_KNOB_POINTER ZYNTHIAN_UI_COLOR_SWITCH_TRACK ZYNTHIAN_UI_COLOR_SWITCH_THUMB"
+TOKEN_VALUES="#7d848b #a9b0b7 #b9c0c6 #5d646b #f4efe2 #3b4046 #a9b0b7"
 want=$(echo $KEYS | tr ' ' '\n')
+want_vintage=$(echo ${KEYS% ZYNTHIAN_UI_LOOK} $TOKENS ZYNTHIAN_UI_LOOK | tr ' ' '\n')
 
 # --- the files
-for f in stock openmixer-vintage; do
-	check "$f.sh sets the sixteen colours, the font, the six grid colours and ZYNTHIAN_UI_LOOK, in order" test "$(keys "$LOOKS/$f.sh" 2>/dev/null)" = "$want"
-done
+check "stock.sh sets the sixteen colours, the font, the six grid colours and ZYNTHIAN_UI_LOOK, in order, and no Tk token" test "$(keys "$LOOKS/stock.sh" 2>/dev/null)" = "$want"
+check "openmixer-vintage.sh sets those and the seven Tk tokens before ZYNTHIAN_UI_LOOK, in order" test "$(keys "$LOOKS/openmixer-vintage.sh" 2>/dev/null)" = "$want_vintage"
 check "every look names itself on its first line" \
 	bash -c 'for f in "$1"/*.sh; do head -n 1 "$f" | grep -q "^# [A-Za-z]"; done' _ "$LOOKS"
 
 V=$LOOKS/openmixer-vintage.sh
+check "vintage's seven Tk tokens are the console's aluminium values" \
+	test "$(for k in $TOKENS; do printf '%s ' "$(val "$V" "$k")"; done)" = "$TOKEN_VALUES "
+check "stock carries no Tk token" bash -c 'for k in $2; do ! grep -q "$k" "$1" || exit 1; done' _ "$LOOKS/stock.sh" "$TOKENS"
+
 pin=$(sed -n 's/^# pin sha256:\([0-9a-f]\{64\}\).*/\1/p' "$V" 2>/dev/null)
 sum=$(sed -n 's/^export \([A-Z0-9_]*\)="\([^"]*\)"$/\1=\2/p' "$V" 2>/dev/null | sha256sum | cut -d' ' -f1)
 check "the vintage file's pin recomputes from its lines" test -n "$pin" -a "$pin" = "$sum"
