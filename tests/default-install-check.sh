@@ -5,7 +5,7 @@
 # that running the update again changes nothing.
 #
 # Container only: it rewrites /zynthian/config, /etc/omx and /etc/systemd.
-# Needs debian:trixie (amd64 is fine) with openmixer-release and the packages
+# Needs debian:trixie (arm64 in CI; the refusal below is checked only where the machine is not arm64) with openmixer-release and the packages
 # config/openmixer-packages lists installed, and this tree copied to
 # /zynthian/zynthian-sys:
 #
@@ -102,8 +102,8 @@ assert_defaults() {
 	check "config/plugin-hostd.conf: lv2_worker omx-clap-host" test "$(conf "$SYS_DIR/config/plugin-hostd.conf" lv2_worker)" = omx-clap-host
 	check "plugin-hostd.conf: pin_file is the sync's ($(conf "$QUALIFY_CONF" pin_file))" \
 		test -n "$(conf "$PHD_CONF" pin_file)" -a "$(conf "$PHD_CONF" pin_file)" = "$(conf "$QUALIFY_CONF" pin_file)"
-	check "plugin-hostd.conf: qualification_dir is the sync's" \
-		test "$(conf "$PHD_CONF" qualification_dir)" = "$(conf "$QUALIFY_CONF" qualification_dir)"
+	check "plugin-hostd.conf: no qualification_dir (plugin-hostd-protocol 0.7.0 refuses the key)" \
+		test -z "$(conf "$PHD_CONF" qualification_dir)"
 	check "plugin-hostd.conf: descriptor_dir is the sync's" \
 		test "$(conf "$PHD_CONF" descriptor_dir)" = "$(conf "$QUALIFY_CONF" descriptor_dir)"
 	check "the pin file is there before the first sync" test -f "$(conf "$PHD_CONF" pin_file)"
@@ -196,8 +196,12 @@ before=$(sha256sum /var/lib/omx/qualified.pins)
 "$HOOK" >"$work/hook.log" 2>&1
 rc=$?
 sed 's/^/   | /' "$work/hook.log"
-check "it refuses to run on $(dpkg --print-architecture) (exit 2)" test "$rc" = 2
-check "and writes nothing" test "$before" = "$(sha256sum /var/lib/omx/qualified.pins)"
+if [ "$(dpkg --print-architecture)" != arm64 ]; then
+  check "it refuses to run on $(dpkg --print-architecture) (exit 2)" test "$rc" = 2
+  check "and writes nothing" test "$before" = "$(sha256sum /var/lib/omx/qualified.pins)"
+else
+  echo "   (arm64 machine: the refusal is not reachable here; the arm64 path is run below with the probes stubbed)"
+fi
 # The arm64 path, with the architecture probes stubbed, over one CLAP
 mkdir -p "$work/arm/bin" "$work/arm/clap" "$work/arm/lv2"
 printf '#!/bin/sh\necho arm64\n' >"$work/arm/bin/dpkg"
