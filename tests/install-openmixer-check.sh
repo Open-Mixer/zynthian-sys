@@ -30,20 +30,21 @@ trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/bin" /var/lib/omx
 stub() { printf '#!/bin/bash\n%s\n' "$2" >"$work/bin/$1"; chmod +x "$work/bin/$1"; }
 stub dpkg 'case "$1" in --print-architecture) echo amd64 ;; esac'
-stub dpkg-query 'case "$*" in *Status*) printf "install ok installed" ;; *) printf 1.0 ;; esac'
-stub apt-get 'exit 0'
+stub dpkg-query 'case "$*" in *Status*) printf "install ok installed" ;; *jackd2) printf "${JACKD2_VERSION:-1.0}" ;; *) printf 1.0 ;; esac'
+stub apt-get 'echo "$*" >>"$APT_LOG"; exit 0'
 stub plugin-hostd 'exit 0'
 stub omx-clap-scan 'exit 0'
 stub systemd-tmpfiles 'exit 0'
 stub systemctl 'echo "$*" >>"$SYSTEMCTL_LOG"; case "$1" in is-enabled) echo disabled; exit 1 ;; esac'
 
 recipe() {
-	PATH="$work/bin:$PATH" SYSTEMCTL_LOG="$work/systemctl.log" ZYNTHIAN_SYS_DIR=$SYS ZYNTHIAN_CONFIG_DIR=$work/config \
+	PATH="$work/bin:$PATH" SYSTEMCTL_LOG="$work/systemctl.log" APT_LOG="$work/apt.log" APT_PIN="$work/apt-pin" \
+		ZYNTHIAN_SYS_DIR=$SYS ZYNTHIAN_CONFIG_DIR=$work/config \
 		QUALIFY_CONF=$work/qualify.conf "$SYS/scripts/recipes/install_openmixer.sh" \
 		>"$work/recipe.log" 2>&1
 }
 fresh() {
-	rm -rf "$work/config" "$work/qualify.conf" "$work/systemctl.log"
+	rm -rf "$work/config" "$work/qualify.conf" "$work/systemctl.log" "$work/apt.log" "$work/apt-pin"
 	mkdir -p "$work/config"
 }
 
@@ -76,6 +77,21 @@ check "plugin-qualify-sync.timer is enabled" grep -qx 'enable plugin-qualify-syn
 check "plugin-qualify-sync.path is enabled" grep -qx 'enable plugin-qualify-sync.path' "$work/systemctl.log"
 check "no message about a plugin-qualify with no sync" bash -c '! grep -q "no qualification sync" "$1"' _ "$work/recipe.log"
 check "the step is marked done" grep -qx qualify-sync "$work/config/openmixer-defaults"
+
+echo "== jackd2: the apt pin, and Debian's jackd2 replaced by the channel's"
+fresh
+recipe
+check "the apt pin is installed from etc/apt/preferences.d/openmixer-jackd2" cmp -s "$SYS/etc/apt/preferences.d/openmixer-jackd2" "$work/apt-pin"
+check "the pin prefers the OpenMixer channel's jackd2 and libjack" \
+	grep -qx 'Pin: release o=OpenMixer' "$work/apt-pin"
+check "Debian's jackd2 (no +omx) is replaced from the channel" grep -q 'install jackd2 libjack-jackd2-0$' "$work/apt.log"
+check "a channel with no fixed jackd2 yet is said, not hidden" grep -q "serves no jackd2 with the metadata fix yet" "$work/recipe.log"
+fresh
+JACKD2_VERSION=1.9.22~dfsg-4+omx1 recipe
+check "the channel's jackd2 (+omx) is not installed again" bash -c '! grep -qs "install jackd2" "$1"' _ "$work/apt.log"
+echo junk >"$work/apt-pin"
+recipe
+check "a changed apt pin is put back" cmp -s "$SYS/etc/apt/preferences.d/openmixer-jackd2" "$work/apt-pin"
 
 [ "$fails" = 0 ] && echo "install-openmixer: all checks passed" || echo "install-openmixer: $fails checks failed"
 exit "$fails"
