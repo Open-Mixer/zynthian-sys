@@ -67,6 +67,9 @@ assert_defaults() {
 	check "omx-clap-scan is installed (omx-clap-host)" test -x "$(command -v omx-clap-scan)"
 	check "an apt source names the OpenMixer repository" \
 		grep -Rqs 'openmixer.org/deb' /etc/apt/sources.list.d/
+	# openmixer-release 1-11 and later: the testing source (the staging channel), installed disabled
+	check "the OpenMixer testing source is installed and disabled" \
+		grep -qx 'Enabled: no' /etc/apt/sources.list.d/openmixer-testing.sources
 
 	check "fonts-inter is installed" dpkg-query -W fonts-inter
 	check "fontconfig knows Inter, the family the look names" bash -c 'fc-list : family | grep -qx "Inter"'

@@ -5,7 +5,9 @@
 #   install_openmixer.sh [--upgrade]
 #
 # - the OpenMixer apt repository (package openmixer-release, which carries the
-#   signing key and one apt source per Debian release);
+#   signing key and one apt source per Debian release), at 1-11 or later: that
+#   release adds the testing source, disabled (/etc/apt/sources.list.d/
+#   openmixer-testing.sources); the recipe never enables or disables it;
 # - the packages config/openmixer-packages lists: plugin-hostd and its Python
 #   client, omx-clap-host (with omx-clap-scan), omx-plugins, omx-panel and
 #   plugin-qualify;
@@ -112,6 +114,32 @@ if ! is_installed openmixer-release; then
 	else
 		note "could not add the OpenMixer repository: the next run tries again"
 		failed=1
+	fi
+fi
+
+# The testing source (the staging channel, as Fedora's updates-testing): the
+# builds a release wave has proved on this platform before their release. It
+# comes with openmixer-release from 1-11, written disabled; this step only
+# brings openmixer-release up to that floor and says how the source stands.
+# Enabled or not is the user's: the recipe never changes that line.
+RELEASE_FLOOR=1-11
+TESTING_SOURCE=${TESTING_SOURCE:-/etc/apt/sources.list.d/openmixer-testing.sources}
+if [ "$failed" = 0 ] && is_installed openmixer-release; then
+	release_before=$(version_of openmixer-release)
+	if dpkg --compare-versions "$release_before" lt "$RELEASE_FLOOR"; then
+		if apt-get -y update >/dev/null && apt-get "${APT_OPTS[@]}" install openmixer-release >/dev/null; then
+			release_now=$(version_of openmixer-release)
+			if [ "$release_now" != "$release_before" ]; then
+				change "upgraded openmixer-release $release_before -> $release_now"
+			fi
+		else
+			note "could not upgrade openmixer-release $release_before: the next run tries again"
+		fi
+	fi
+	if [ ! -f "$TESTING_SOURCE" ]; then
+		note "no OpenMixer testing source yet: openmixer-release $(version_of openmixer-release) predates $RELEASE_FLOOR"
+	elif grep -qx 'Enabled: yes' "$TESTING_SOURCE"; then
+		note "the OpenMixer testing source is enabled ($TESTING_SOURCE): pre-release builds are installed"
 	fi
 fi
 
