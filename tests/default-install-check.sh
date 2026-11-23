@@ -102,8 +102,8 @@ assert_defaults() {
 	check "config/plugin-hostd.conf: lv2_worker omx-clap-host" test "$(conf "$SYS_DIR/config/plugin-hostd.conf" lv2_worker)" = omx-clap-host
 	check "plugin-hostd.conf: pin_file is the sync's ($(conf "$QUALIFY_CONF" pin_file))" \
 		test -n "$(conf "$PHD_CONF" pin_file)" -a "$(conf "$PHD_CONF" pin_file)" = "$(conf "$QUALIFY_CONF" pin_file)"
-	check "plugin-hostd.conf: qualification_dir is the sync's" \
-		test "$(conf "$PHD_CONF" qualification_dir)" = "$(conf "$QUALIFY_CONF" qualification_dir)"
+	check "plugin-hostd.conf: no qualification_dir (plugin-hostd-protocol 0.7.0 refuses the key)" \
+		test -z "$(conf "$PHD_CONF" qualification_dir)"
 	check "plugin-hostd.conf: descriptor_dir is the sync's" \
 		test "$(conf "$PHD_CONF" descriptor_dir)" = "$(conf "$QUALIFY_CONF" descriptor_dir)"
 	check "the pin file is there before the first sync" test -f "$(conf "$PHD_CONF" pin_file)"
