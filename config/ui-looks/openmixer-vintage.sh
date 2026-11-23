@@ -1,5 +1,5 @@
 # OpenMixer vintage: the console default look (dark, orange, aluminium, vintage) for Zynthian.
-# GENERATED from the console tokens; do not edit by hand. The seven Tk tokens (zynthian-ui#93): the aluminium finish's
+# Hand-kept from the console tokens until their generator lands; the pin below is hand-kept too. The seven Tk tokens (zynthian-ui#93): the aluminium finish's
 # --knob-face/-edge/-cap-hi/-knurl, tokens.css's --knob-pointer, and the pill: --btn-face (track), --toggle-face (thumb).
 # pin sha256:895b65b94d6e8b1975ab1b5c86b510660c1975e9b7d2ec7546db0c4730db5edf (sha256 of KEY=value lines below, in order)
 export ZYNTHIAN_UI_COLOR_BG="#0b0e11"
