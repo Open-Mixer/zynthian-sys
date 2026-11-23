@@ -134,7 +134,8 @@ libsdl2-dev libibus-1.0-dev gir1.2-ibus-1.0 libdecor-0-dev libflac-dev libgbm-de
 libmpg123-dev libvorbis-dev libogg-dev libopus-dev libpulse-dev libpulse-mainloop-glib0 libsndio-dev \
 libsystemd-dev libudev-dev libxss-dev libxt-dev libxv-dev libxxf86vm-dev libftgl-dev libical-dev \
 libclthreads-dev libclxclient-dev libwebkit2gtk-4.1-dev libboost-python-dev libboost-thread-dev libsndfile-dev \
-liblilv-dev lilv-utils libsuil-dev liblo-tools nlohmann-json3-dev libmimalloc3 libmimalloc-dev
+liblilv-dev lilv-utils libsuil-dev liblo-tools nlohmann-json3-dev libmimalloc3 libmimalloc-dev \
+ntk-static
 # Missed libs from previous OS versions:
 # Removed from trixie: lv2-c++-tools libganv-dev
 
@@ -149,8 +150,7 @@ apt-get -y install python3 python3-dev python3-pip cython3 python3-cffi python3-
 python3-pil python3-pil.imagetk python3-setuptools python3-pyqt5 python3-numpy python3-evdev python3-usb \
 python3-soundfile python3-psutil python3-pexpect python3-jsonpickle python3-requests python3-mido python3-rtmidi \
 python3-mutagen python3-pam python3-bcrypt python3-liblo python3-lilv python3-alsaaudio python3-levenshtein \
-python3-websocket python3-pyudev python3-py7zr python3-rarfile python3-lgpio pyliblo-utils python3.13-venv \
-python3-rdflib python3-bs4
+python3-websocket python3-pyudev python3-py7zr python3-rarfile pyliblo-utils python3.13-venv python3-rdflib python3-bs4
 
 #------------------------------------------------
 # Create Zynthian Directory Tree
@@ -270,76 +270,17 @@ $ZYNTHIAN_SYS_DIR/scripts/update_zynthian_data.sh
 $ZYNTHIAN_SYS_DIR/scripts/update_zynthian_sys.sh
 
 #----------------------------------------------------------------------------------------------------------
-
-# Pipe audio to WebRTC
-cd /root
-wget "https://github.com/bluenviron/mediamtx/releases/download/v1.21.3/mediamtx_v1.21.3_linux_amd64.tar.gz"
-tar xfvz mediamtx_v1.21.3_linux_amd64.tar.gz
-mv mediamtx /usr/local/bin
-mkdir -p /usr/local/etc/mediamtx
-mv mediamtx.yml /usr/local/etc/mediamtx
-rm -f mediamtx_v1.21.3_linux_amd64.tar.gz
-
-tee /etc/systemd/system/mediamtx.service > /dev/null << 'EOF'
-[Unit]
-Description=MediaMTX Realtime Media Server
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/mediamtx /usr/local/etc/mediamtx/mediamtx.yml
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo tee /etc/systemd/system/jack2whip.service > /dev/null << 'EOF'
-[Unit]
-Description=Jack Audio to MediaMTX Audio Bridge
-After=jack2.service mediamtx.service
-Requires=jack2.service mediamtx.service
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/ffmpeg -f jack -i JackToWhip -acodec libopus -b:a 96k -vbr on -frame_duration 10 -compression_level 0 -f rtsp -rtsp_transport udp rtsp://127.0.0.1:8554/zynstream
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable mediamtx
-systemctl enable jack2whip
-systemctl start mediamtx
-systemctl start jack2whip
-
-http://10.0.3.229:8889/zynstream/
-
+# Specific software for Virtualized Zynthian (LXC)
 #----------------------------------------------------------------------------------------------------------
 
+# Install MediaMTX to pipe audio via WebRTC (whep)
+$ZYNTHIAN_RECIPE_DIR/install_mediamtx.sh
+
 # Install KasmVNC server
-cd /root
-wget "https://github.com/kasmtech/KasmVNC/releases/download/v1.5.2/kasmvncserver_debian_bookworm_1.5.2_amd64.deb"
-apt install -y "./kasmvncserver_debian_bookworm_1.5.2_amd64.deb"
+$ZYNTHIAN_RECIPE_DIR/install_kasmvnc.sh
 
-# SIZES => 800x480, 1024x600
-kasmvncpasswd -u root
-kasmvncserver :0
-export DISPLAY=:0
-export ZYNTHIAN_LOG_LEVEL=10
-cd $ZYNTHIAN_UI_DIR
-./zynthian_main.py
-
-kasmvncserver -kill :0
-#systemctl start novnc0
-
-jack_connect zynmixer_bus:output_00a JackToWhip:input_1
-jack_connect zynmixer_bus:output_00b JackToWhip:input_2
-
+#----------------------------------------------------------------------------------------------------------
+# Configure Systemd Services
 #----------------------------------------------------------------------------------------------------------
 
 # Disable/mask uneeded services
@@ -363,9 +304,28 @@ systemctl enable devmon@root
 systemctl enable jack2
 systemctl enable mod-ttymidi
 systemctl enable a2jmidid
-systemctl enable zynthian
+#systemctl enable zynthian
 systemctl enable zynthian-webconf
 #systemctl enable zynthian-config-on-boot
+
+# Specific services for virtual zynthian (LXC):
+systemctl enable mediamtx
+systemctl enable jack2whip
+systemctl enable virtual_zynthian
+
+# The UI runs as virtual_zynthian.service: zynthian.service (it starts its own X server) must never run here.
+# It stays disabled, and a drop-in turns it into a trigger, so "systemctl restart zynthian" (UI restart after
+# updates & config changes, from scripts and webconf) restarts virtual_zynthian instead.
+mkdir -p /etc/systemd/system/zynthian.service.d
+cat > /etc/systemd/system/zynthian.service.d/virtual_zynthian.conf << 'EOF'
+[Service]
+Type=oneshot
+ExecStartPre=
+ExecStart=
+ExecStart=/bin/systemctl restart --no-block virtual_zynthian.service
+ExecStop=
+Restart=no
+EOF
 
 # On first boot, resize SD partition, regenerate keys, etc.
 #$ZYNTHIAN_SYS_DIR/scripts/set_first_boot.sh
@@ -379,6 +339,12 @@ $ZYNTHIAN_RECIPE_DIR/install_mod-ttymidi.sh
 
 # Install LV2 lilv library
 #$ZYNTHIAN_RECIPE_DIR/install_lv2_lilv.sh
+
+# Create legacy old_headers compatibility softlinks
+mkdir -p /usr/include/lv2/lv2plug.in/ns
+ln -s /usr/include/lv2 /usr/include/lv2/lv2plug.in/ns/ext
+ln -s /usr/include/lv2/core /usr/include/lv2/lv2plug.in/ns/lv2core
+ln -s /usr/include/lv2 /usr/include/lv2/lv2plug.in/ns/extensions
 
 # Install the LV2 C++ Tool Kit
 $ZYNTHIAN_RECIPE_DIR/install_lvtk.sh
@@ -551,10 +517,52 @@ cd "$ZYNTHIAN_SYS_DIR/scripts"
 ./setup_plugins_rbpi.sh
 
 #------------------------------------------------
+# Build and Install Plugins for x86_64
+#------------------------------------------------
+$ZYNTHIAN_RECIPE_DIR/install_fabla_prebuilt.sh
+$ZYNTHIAN_RECIPE_DIR/install_vaporizer2.sh
+$ZYNTHIAN_RECIPE_DIR/install_Ultramaster_KR-106_prebuilt.sh
+$ZYNTHIAN_RECIPE_DIR/install_ripplerx_prebuilt.sh
+#$ZYNTHIAN_RECIPE_DIR/install_resonarium_prebuilt.sh
+$ZYNTHIAN_RECIPE_DIR/install_odin2_prebuilt.sh
+$ZYNTHIAN_RECIPE_DIR/install_OB-Xf_prebuilt.sh
+$ZYNTHIAN_RECIPE_DIR/install_monique_monosynth_prebuilt.sh
+$ZYNTHIAN_RECIPE_DIR/install_mimid_prebuilt.sh
+$ZYNTHIAN_RECIPE_DIR/install_helm_prebuilt.sh
+$ZYNTHIAN_RECIPE_DIR/install_qmidiarp_prebuilt.sh
+
+$ZYNTHIAN_RECIPE_DIR/install_jc303.sh
+$ZYNTHIAN_RECIPE_DIR/install_string-machine.sh
+$ZYNTHIAN_RECIPE_DIR/install_dexed_lv2.sh
+$ZYNTHIAN_RECIPE_DIR/install_darc_lv2.sh
+$ZYNTHIAN_RECIPE_DIR/install_.sh
+$ZYNTHIAN_RECIPE_DIR/install_.sh
+
+#------------------------------------------------
 # Install Ableton Link Support
 #------------------------------------------------
 $ZYNTHIAN_RECIPE_DIR/install_hylia.sh
 $ZYNTHIAN_RECIPE_DIR/install_pd_extra_abl_link.sh
+
+#------------------------------------------------
+# Install Packages
+#------------------------------------------------
+export ZYNTHIAN_PACKAGES_DIR="$ZYNTHIAN_DIR/zynthian-packages"
+
+sf_packages=("DrawbarOrgan" "Hydrogen Drumkits" "jRhodes3d" "Salamander Drumkit" "Stevie Clavinet" "TR808-fischer" "Zynthian Factory SF2s" "Zynthian Factory SFZs" "Zynthian Salamander Grand")
+for sf_package in "${sf_packages[@]}"; do
+	zynpack_tool.py INSTALL "Soundfonts" "$sf_package"
+done
+
+smp_packages=("Blood Money" "GLOOM BAP" "EDM-TECH-128BPM" "EDM-TECH-140BPM")
+for smp_package in "${smp_packages[@]}"; do
+	zynpack_tool.py INSTALL "Samples" "$smp_package"
+done
+
+ir_packages=("X42 IRs")
+for ir_package in "${ir_packages[@]}"; do
+	zynpack_tool.py INSTALL "IRs" "$ir_package"
+done
 
 #------------------------------------------------
 # Zynthian specific packages (from zynthian repo)

@@ -81,6 +81,20 @@ function set_engines_flag() {
 	touch $ENGINES_FLAGFILE
 }
 
+# Restart the enabled UI service: zynthian.service on real devices; virtual_zynthian.service in containers
+# (virtual zynthian, where zynthian.service is disabled).
+function restart_zynthian_ui() {
+	local svc
+	for svc in zynthian virtual_zynthian; do
+		if systemctl -q is-enabled $svc 2>/dev/null; then
+			break
+		fi
+		svc="zynthian"
+	done
+	echo "Restarting $svc service..."
+	systemctl restart $svc
+}
+
 function run_flag_actions() {
 
 	if [ "$ZYNTHIAN_FLAG_MASTER" = "$0" ]; then
@@ -108,8 +122,7 @@ function run_flag_actions() {
 			echo "Saving state..."
 			send_osc 1370 /CUIA/LAST_STATE_ACTION
 			sleep 1
-			echo "Restarting zynthian service..."
-			systemctl restart zynthian
+			restart_zynthian_ui
 		fi
 
 		if [ -f $RESTART_WEBCONF_FLAGFILE ]; then
