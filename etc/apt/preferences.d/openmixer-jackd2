@@ -1,0 +1,10 @@
+# jackd2 from the OpenMixer channel: Debian's jackd2 with the jack2 metadata
+# fix (jackaudio/jack2#988, Open-Mixer/zynthian-sys#24). A JACK client that
+# dies without closing strands its Berkeley DB mutexes until no client can
+# open the metadata store (BDB2034), and a jackd restart does not clear it.
+# Installed by scripts/recipes/install_openmixer.sh. This file and the
+# channel's jackd2 (Open-Mixer/.github packaging/jackd2) go away together,
+# once upstream jack2 and Debian carry the fix.
+Package: jackd2 libjack-jackd2-0 libjack-jackd2-dev jackd2-firewire
+Pin: release o=OpenMixer
+Pin-Priority: 990

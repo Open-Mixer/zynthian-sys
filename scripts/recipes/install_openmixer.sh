@@ -18,6 +18,8 @@
 #   Zynthian's plugin directories in /etc/omx/qualify.conf.
 # - the OpenMixer vintage UI look and its font (fonts-inter), once; a colour
 #   chosen by hand stays.
+# - jackd2 from the OpenMixer channel, with the jack2 metadata fix, and the
+#   apt pin that keeps it (etc/apt/preferences.d/openmixer-jackd2);
 # - an apt hook that keeps the MOD GUI look chosen with
 #   sbin/omx-modgui-look.sh after a package update (omx-modgui-sync), and now.
 #
@@ -146,6 +148,40 @@ elif [ -z "$missing" ]; then
 fi
 if is_installed omx-clap-host && ! command -v omx-clap-scan >/dev/null; then
 	note "omx-clap-scan is missing from omx-clap-host $(version_of omx-clap-host)"
+fi
+
+# jackd2 with the jack2 metadata fix (zynthian-sys#24): Debian's strands the
+# Berkeley DB mutexes of every JACK client that dies without closing, until no
+# client can open the metadata store (BDB2034). The apt pin prefers the
+# channel's jackd2; it is put back at every run, and an installed Debian jackd2
+# is replaced by the channel's as soon as the channel serves one.
+APT_PIN=${APT_PIN:-/etc/apt/preferences.d/openmixer-jackd2}
+jackd_changed=0
+if [ "$failed" = 0 ] && is_installed openmixer-release; then
+	if ! cmp -s "$ZYNTHIAN_SYS_DIR/etc/apt/preferences.d/openmixer-jackd2" "$APT_PIN"; then
+		mkdir -p "$(dirname "$APT_PIN")"
+		cp "$ZYNTHIAN_SYS_DIR/etc/apt/preferences.d/openmixer-jackd2" "$APT_PIN"
+		change "apt pin $APT_PIN: jackd2 from the OpenMixer channel"
+	fi
+	if is_installed jackd2; then
+		jackd_before=$(version_of jackd2)
+		case "$jackd_before" in
+		*+omx*) ;;
+		*)
+			if apt-get -y update >/dev/null && apt-get "${APT_OPTS[@]}" install jackd2 libjack-jackd2-0 >/dev/null; then
+				jackd_now=$(version_of jackd2)
+				if [ "$jackd_now" != "$jackd_before" ]; then
+					change "jackd2 $jackd_before -> $jackd_now (the metadata fix)"
+					jackd_changed=1
+				else
+					note "the OpenMixer channel serves no jackd2 with the metadata fix yet: jackd2 $jackd_before stays"
+				fi
+			else
+				note "could not install jackd2 from the OpenMixer channel: the next run tries again"
+			fi
+			;;
+		esac
+	fi
 fi
 
 #------------------------------------------------------------------------------
@@ -295,6 +331,9 @@ for n in "${notes[@]}"; do echo "  note: $n"; done
 if [ "$modhost_changed" = 1 ] || [ "$phd_changed" = 1 ]; then
 	echo "  mod-host and mod-ui were not restarted: the change applies at their next start"
 	echo "  (a reboot, or now: $ZYNTHIAN_SYS_DIR/sbin/set_modhost_backend.sh plugin-hostd)"
+fi
+if [ "$jackd_changed" = 1 ]; then
+	echo "  jackd was not restarted: the new jackd2 applies from its next start (a reboot)"
 fi
 if [ "$look_changed" = 1 ]; then
 	echo "  zynthian was not restarted: the UI look applies from its next start"
