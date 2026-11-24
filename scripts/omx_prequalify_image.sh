@@ -63,7 +63,9 @@ setting() {
 for f in "$(setting pin_file /var/lib/omx/qualified.pins)" "$(setting state_file /var/lib/omx/qualify-sync.json)"; do
 	[ -f "$f" ] && echo "  $f ($(wc -l <"$f") lines)"
 done
-for d in "$(setting qualification_dir /var/lib/omx/qualification)" "$(setting descriptor_dir /var/lib/omx/descriptors)"; do
-	[ -d "$d" ] && echo "  $d ($(find "$d" -type f | wc -l) files)"
-done
+# the records are in the system scope's qualification store (plugin-db-qualification)
+store=/var/lib/omx/qualification/qualification.sqlite
+[ -f "$store" ] && echo "  $store ($(plugin-qualification-db query --scope system --layer user --json --records 2>/dev/null | wc -l) records)"
+d=$(setting descriptor_dir /var/lib/omx/descriptors)
+[ -d "$d" ] && echo "  $d ($(find "$d" -type f | wc -l) files)"
 exit "$rc"

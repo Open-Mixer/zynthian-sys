@@ -67,6 +67,9 @@ assert_defaults() {
 	check "omx-clap-scan is installed (omx-clap-host)" test -x "$(command -v omx-clap-scan)"
 	check "an apt source names the OpenMixer repository" \
 		grep -Rqs 'openmixer.org/deb' /etc/apt/sources.list.d/
+	# openmixer-release 1-11 and later: the testing source (the staging channel), installed disabled
+	check "the OpenMixer testing source is installed and disabled" \
+		grep -qx 'Enabled: no' /etc/apt/sources.list.d/openmixer-testing.sources
 
 	check "fonts-inter is installed" dpkg-query -W fonts-inter
 	check "fontconfig knows Inter, the family the look names" bash -c 'fc-list : family | grep -qx "Inter"'
@@ -92,7 +95,9 @@ assert_defaults() {
 	printf 'lv2_path %s\nclap_path %s\n' "$work/empty" "$work/empty" >"$work/phd.conf"
 	check "plugin-qualify-sync takes qualify.conf" plugin-qualify-sync --system --config "$QUALIFY_CONF" \
 		--hostd-conf "$work/phd.conf" --pin-file "$work/p.pins" \
-		--state-file "$work/s.json" --qualification-dir "$work/q" --descriptor-dir "$work/d" --hostd-port 0
+		--state-file "$work/s.json" --descriptor-dir "$work/d" --hostd-port 0
+	check "qualify.conf: no qualification_dir (plugin-qualify 0.21.2 refuses the key; the records are the store's)" \
+		test -z "$(conf "$QUALIFY_CONF" qualification_dir)"
 
 	# plugin-hostd.conf: pins required, first-use for what is not qualified yet, the sync's pin file
 	check "plugin-hostd.conf: require_pins 1" test "$(conf "$PHD_CONF" require_pins)" = 1
@@ -211,14 +216,15 @@ printf 'processor\t: 0\nCPU implementer\t: 0x41\n' >"$work/arm/cpuinfo"
 cp /usr/lib/clap/omx-drive.clap "$work/arm/clap/"
 printf '%s\n' "clap_path $work/arm/clap" "lv2_path $work/arm/lv2" >"$work/arm/plugin-hostd.conf"
 printf '%s\n' "hostd_conf $work/arm/plugin-hostd.conf" "pin_file $work/arm/qualified.pins" \
-	"qualification_dir $work/arm/qualification" "descriptor_dir $work/arm/descriptors" \
+	"descriptor_dir $work/arm/descriptors" \
 	"state_file $work/arm/qualify-sync.json" >"$work/arm/qualify.conf"
 PATH="$work/arm/bin:$PATH" CPUINFO="$work/arm/cpuinfo" QUALIFY_CONF="$work/arm/qualify.conf" "$HOOK" >"$work/hook.log" 2>&1
 rc=$?
 sed 's/^/   | /' "$work/hook.log"
 check "on arm64 it runs the sync (exit 0)" test "$rc" = 0
 check "it writes the pin of the CLAP to the pin file" grep -q 'omx-drive.clap' "$work/arm/qualified.pins"
-check "it writes a qualification record" test -n "$(find "$work/arm/qualification" -type f)"
+check "it writes a qualification record to the system scope's store" bash -c \
+	'plugin-qualification-db query --scope system --layer user --format clap --json --records | grep -q omx-drive'
 check "it writes the sync's state" test -s "$work/arm/qualify-sync.json"
 plugin-qualify-sync --system --config "$work/arm/qualify.conf" --hostd-port 0 >"$work/boot.log" 2>&1
 check "the first boot's sync then qualifies nothing again" grep -q '^qualified 0, skipped 1,' "$work/boot.log"
