@@ -1,0 +1,68 @@
+{
+ "schema_version": 5,
+ "chains": {
+  "0": {
+   "title": "Main",
+   "midi_chan": null,
+   "midi_thru": false,
+   "audio_thru": true,
+   "zmop_index": null,
+   "cc_route": [],
+   "slots": [],
+   "zctrls": {}
+  },
+  "1": {
+   "title": "Hex Forge",
+   "midi_chan": null,
+   "midi_thru": false,
+   "audio_thru": false,
+   "zmop_index": null,
+   "cc_route": [],
+   "slots": [
+    {
+     "1": "PH/Hex Forge"
+    }
+   ],
+   "zctrls": {}
+  }
+ },
+ "zs3": {
+  "zs3-0": {
+   "title": "Last state",
+   "active_chain": 1,
+   "chains": {
+    "1": {
+     "audio_in": [
+      1
+     ],
+     "audio_out": [
+      "mixer"
+     ]
+    }
+   },
+   "processors": {
+    "1": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {
+      "it_gain": {
+       "value": 0.0
+      },
+      "out_level": {
+       "value": -20.0
+      }
+     },
+     "current_screen_index": 0
+    }
+   }
+  }
+ },
+ "last_zs3_id": "zs3-0"
+}

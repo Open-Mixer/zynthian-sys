@@ -33,6 +33,8 @@ jobs:
         run: tests/plugin-hostd-ready-check.sh
       - name: The install recipe adds the plugin engine and the backend to an existing zynthian_envars.sh
         run: tests/install-openmixer-check.sh
+      - name: The guitar rack example names only plugins of the bundle the recipe installs, each control a port in range
+        run: tests/guitar-rack-example-check.sh
       - name: Every check script runs here, or says what device it needs
         run: tests/ci-runs-every-check.sh
       - name: The first install takes only the signed openmixer-release
