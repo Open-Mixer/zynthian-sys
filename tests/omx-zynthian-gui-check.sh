@@ -45,7 +45,7 @@ bundle() {
 bundle alpha "$T/lv2" none     # Zynthian's: no groups, so a complement
 bundle beta "$T/lv2" groups    # Zynthian's: groups stated, no complement
 bundle gamma "$T/lv2b" none    # Zynthian's, on the second LV2_PATH directory; the base does not describe it
-bundle omx-comp "$T/lv2" none  # omx-plugins-lv2's: omx-plugins-gui stages it
+bundle omx-gate "$T/lv2" none  # omx-plugins-lv2's: omx-plugins-gui stages it
 mkdir -p "$T/lv2/presets.lv2" "$T/lv2/omx-modgui-alpha.lv2" "$T/lv2/omx-complement-alpha.lv2"
 echo '<urn:zyn:alpha#p1> a pset:Preset .' >"$T/lv2/presets.lv2/manifest.ttl"  # a preset bundle: no binary
 cp "$T/lv2/alpha.lv2/manifest.ttl" "$T/lv2/omx-modgui-alpha.lv2/" && : >"$T/lv2/omx-modgui-alpha.lv2/.omx-modgui-sync"
@@ -58,7 +58,7 @@ printf 'alpha\nbeta\n' >"$T/base-has"
 cat >"$T/bin/dpkg-query" <<'EOF'
 #!/bin/bash
 case "$*" in
-"-L omx-plugins-lv2") printf '%s\n' /. "$LV2_DIR" "$LV2_DIR/omx-comp.lv2" "$LV2_DIR/omx-comp.lv2/manifest.ttl" ;;
+"-L omx-plugins-lv2") printf '%s\n' /. "$LV2_DIR" "$LV2_DIR/omx-gate.lv2" "$LV2_DIR/omx-gate.lv2/manifest.ttl" ;;
 "-W -f=\${Version} omx-panel-descriptions") printf '0.3.0-1' ;;
 *) exit 1 ;;
 esac
@@ -128,7 +128,7 @@ check "gui-stage runs once" test "$(grep -c '^omx-panel gui-stage ' "$T/calls")"
 check "gui-stage reads the base the build names" grep -q -- "--descriptions $T/panel.sqlite" "$T/calls"
 check "the set is Zynthian's plugin bundles on LV2_PATH, in byte order" \
 	test "$(cat "$T/set-seen" 2>/dev/null)" = "$(printf '%s\n' "$T/lv2/alpha.lv2" "$T/lv2/beta.lv2" "$T/lv2b/gamma.lv2")"
-check "omx-plugins-lv2's bundle is not in the set (omx-plugins-gui stages it)" kept_out omx-comp
+check "omx-plugins-lv2's bundle is not in the set (omx-plugins-gui stages it)" kept_out omx-gate
 check "a bundle without a binary, and the bundles our syncs wrote, are not in the set" \
 	kept_out 'presets|omx-modgui-alpha|omx-complement-alpha'
 check "one package is written" test "$(debs one)" = 1
