@@ -30,7 +30,7 @@ trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/bin" /var/lib/omx
 stub() { printf '#!/bin/bash\n%s\n' "$2" >"$work/bin/$1"; chmod +x "$work/bin/$1"; }
 stub dpkg 'case "$1" in --print-architecture) echo amd64 ;; esac'
-stub dpkg-query 'case "$*" in *Status*) printf "install ok installed" ;; *jackd2) printf "${JACKD2_VERSION:-1.0}" ;; *) printf 1.0 ;; esac'
+stub dpkg-query 'case "$*" in *Status*) printf "install ok installed" ;; *jackd2) printf "${JACKD2_VERSION:-1.0}" ;; *omx-zynthian-gui) printf "${ZGUI_VERSION:-}" ;; -L*) ;; *) printf 1.0 ;; esac'
 stub apt-get 'echo "$*" >>"$APT_LOG"; exit 0'
 stub plugin-hostd 'exit 0'
 stub omx-clap-scan 'exit 0'
@@ -40,8 +40,9 @@ stub systemctl 'echo "$*" >>"$SYSTEMCTL_LOG"; case "$1" in is-enabled) echo disa
 recipe() {
 	PATH="$work/bin:$PATH" SYSTEMCTL_LOG="$work/systemctl.log" APT_LOG="$work/apt.log" APT_PIN="$work/apt-pin" \
 		ZYNTHIAN_SYS_DIR=$SYS ZYNTHIAN_CONFIG_DIR=$work/config \
-		QUALIFY_CONF=$work/qualify.conf "$SYS/scripts/recipes/install_openmixer.sh" \
-		>"$work/recipe.log" 2>&1
+		QUALIFY_CONF=$work/qualify.conf OMX_PANEL_BASE=${OMX_PANEL_BASE:-$work/no-base} \
+		"$SYS/scripts/recipes/install_openmixer.sh" >"$work/recipe.log" 2>&1
+	echo $? >"$work/recipe.rc"
 }
 fresh() {
 	rm -rf "$work/config" "$work/qualify.conf" "$work/systemctl.log" "$work/apt.log" "$work/apt-pin"
@@ -92,6 +93,35 @@ check "the channel's jackd2 (+omx) is not installed again" bash -c '! grep -qs "
 echo junk >"$work/apt-pin"
 recipe
 check "a changed apt pin is put back" cmp -s "$SYS/etc/apt/preferences.d/openmixer-jackd2" "$work/apt-pin"
+
+echo "== omx-zynthian-gui: Zynthian's default plugins' GUIs staged from the base, installed when they change"
+# one Zynthian plugin bundle, the base, and omx-panel gui-stage staging it (omx-panel's section 6)
+mkdir -p "$work/lv2/zyn.lv2"
+echo '<urn:zyn> a lv2:Plugin ; lv2:binary <zyn.so> .' >"$work/lv2/zyn.lv2/manifest.ttl"
+echo binary >"$work/lv2/zyn.lv2/zyn.so"
+echo base >"$work/panel.sqlite"
+stub omx-panel '[ "$1" = gui-stage ] || exit 2
+while [ $# -gt 0 ]; do case $1 in --out) out=$2 ;; esac; shift; done
+sha=$(sha256sum "'"$work"'/lv2/zyn.lv2/zyn.so" | cut -d" " -f1)
+mkdir -p "$out/$sha/modgui" "$out/$sha/lv2ui" && echo m >"$out/$sha/modgui/modgui.ttl" && echo u >"$out/$sha/lv2ui/manifest.ttl"
+echo "{\"plugins\": [{\"sha256\": \"$sha\"}]}" >"$out/keys.json"'
+zgui() { grep -o 'install [^ ]*omx-zynthian-gui_[^ ]*_all\.deb' "$work/apt.log" 2>/dev/null; }
+fresh
+printf 'export LV2_PATH="%s"\n' "$work/lv2" >"$work/config/zynthian_envars.sh"
+OMX_PANEL_BASE=$work/panel.sqlite recipe
+check "the recipe builds omx-zynthian-gui and installs it" test -n "$(zgui)"
+version=$(zgui | sed 's/.*omx-zynthian-gui_\(.*\)_all\.deb/\1/')
+check "the version installed is the base's and the key record's" bash -c '[[ $1 == 1.0+k[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f] ]]' _ "$version"
+check "the report names it and how many were staged" grep -q "installed omx-zynthian-gui $version (1 of 1 plugins staged)" "$work/recipe.log"
+: >"$work/apt.log"
+ZGUI_VERSION=$version OMX_PANEL_BASE=$work/panel.sqlite recipe
+check "the same set over the same base is not installed again" test -z "$(zgui)"
+check "and the report does not name it" bash -c '! grep -q omx-zynthian-gui "$1"' _ "$work/recipe.log"
+: >"$work/apt.log"
+recipe
+check "no base: no package is installed" test -z "$(zgui)"
+check "no base: the report says why it was not built" grep -q "note: omx-zynthian-gui not built: .*no base at $work/no-base" "$work/recipe.log"
+check "no base: the image build goes on (the recipe exits 0)" test "$(cat "$work/recipe.rc")" = 0
 
 [ "$fails" = 0 ] && echo "install-openmixer: all checks passed" || echo "install-openmixer: $fails checks failed"
 exit "$fails"
