@@ -49,6 +49,10 @@ jobs:
         run: tests/modgui-look-check.sh
       - name: The MOD GUI look script and its check pass shellcheck (warnings and errors)
         run: shellcheck -S warning sbin/omx-modgui-look.sh tests/modgui-look-check.sh
+      - name: omx-zynthian-gui is staged from the base, over Zynthian's plugin bundles, noarch and reproducible
+        run: tests/omx-zynthian-gui-check.sh
+      - name: The omx-zynthian-gui build and its check pass shellcheck (warnings and errors)
+        run: shellcheck -S warning scripts/omx-zynthian-gui-build.sh tests/omx-zynthian-gui-check.sh
       - name: The pinned keys are the ones the channel and the tags use
         run: |
           fpr() { gpg --batch --with-colons --import-options show-only --import < "$1" 2>/dev/null | awk -F: '/^pub:/ {p = 1; next} /^fpr:/ && p {print $10; p = 0}' | sort | tr '\n' ' '; }
