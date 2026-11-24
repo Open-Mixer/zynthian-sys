@@ -22,6 +22,8 @@
 #   apt pin that keeps it (etc/apt/preferences.d/openmixer-jackd2);
 # - an apt hook that keeps the MOD GUI look chosen with
 #   sbin/omx-modgui-look.sh after a package update (omx-modgui-sync), and now.
+# - omx-zynthian-gui, the GUIs of Zynthian's default plugins staged from the
+#   base by scripts/omx-zynthian-gui-build.sh, installed when it changes.
 #
 # Each of these is done once: the steps done are listed in
 # $ZYNTHIAN_CONFIG_DIR/openmixer-defaults. A config that exists is not changed.
@@ -316,6 +318,29 @@ if out=$("$ZYNTHIAN_SYS_DIR/sbin/omx-modgui-look.sh" --apply 2>&1); then
 else
 	note "MOD GUI look: $out"
 fi
+
+# omx-zynthian-gui: the MOD GUI, LV2 desktop UI and LV2 complement of
+# Zynthian's default plugins, staged from the base (omx-panel-descriptions) by
+# scripts/omx-zynthian-gui-build.sh, so the image build stages them. Not a step
+# done once: built on every run, and installed when its version (the base's and
+# the key record's) is not the installed one. A build that cannot be made is a
+# note and the next run tries again; the image build goes on.
+gui_out=$(mktemp -d)
+if gui_log=$(ZYNTHIAN_CONFIG_DIR="$ZYNTHIAN_CONFIG_DIR" "$ZYNTHIAN_SYS_DIR/scripts/omx-zynthian-gui-build.sh" --out "$gui_out" 2>&1); then
+	gui_deb=$(find "$gui_out" -name 'omx-zynthian-gui_*_all.deb' | head -n 1)
+	gui_version=${gui_deb##*/omx-zynthian-gui_}
+	gui_version=${gui_version%_all.deb}
+	if [ "$(version_of omx-zynthian-gui)" != "$gui_version" ]; then
+		if apt-get "${APT_OPTS[@]}" install "$gui_deb" >/dev/null; then
+			change "installed omx-zynthian-gui $gui_version ($(echo "$gui_log" | sed -n 's/^omx-zynthian-gui: \([0-9]* of [0-9]* plugins staged\).*/\1/p'))"
+		else
+			note "omx-zynthian-gui $gui_version did not install: the next run tries again"
+		fi
+	fi
+else
+	note "omx-zynthian-gui not built: $(echo "$gui_log" | tail -n 1)"
+fi
+rm -rf "$gui_out"
 
 #------------------------------------------------------------------------------
 # Report
