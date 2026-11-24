@@ -29,8 +29,8 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/bin" /var/lib/omx
 stub() { printf '#!/bin/bash\n%s\n' "$2" >"$work/bin/$1"; chmod +x "$work/bin/$1"; }
-stub dpkg 'case "$1" in --print-architecture) echo amd64 ;; esac'
-stub dpkg-query 'case "$*" in *Status*) printf "install ok installed" ;; *jackd2) printf "${JACKD2_VERSION:-1.0}" ;; *) printf 1.0 ;; esac'
+stub dpkg "case \"\$1\" in --print-architecture) echo amd64 ;; --compare-versions) exec $(command -v dpkg) \"\$@\" ;; esac"
+stub dpkg-query 'case "$*" in *Status*) printf "install ok installed" ;; *jackd2) printf "${JACKD2_VERSION:-1.0}" ;; *openmixer-release) printf "${RELEASE_VERSION:-1-11}" ;; *) printf 1.0 ;; esac'
 stub apt-get 'echo "$*" >>"$APT_LOG"; exit 0'
 stub plugin-hostd 'exit 0'
 stub omx-clap-scan 'exit 0'
@@ -39,12 +39,13 @@ stub systemctl 'echo "$*" >>"$SYSTEMCTL_LOG"; case "$1" in is-enabled) echo disa
 
 recipe() {
 	PATH="$work/bin:$PATH" SYSTEMCTL_LOG="$work/systemctl.log" APT_LOG="$work/apt.log" APT_PIN="$work/apt-pin" \
+		TESTING_SOURCE="$work/openmixer-testing.sources" \
 		ZYNTHIAN_SYS_DIR=$SYS ZYNTHIAN_CONFIG_DIR=$work/config \
 		QUALIFY_CONF=$work/qualify.conf "$SYS/scripts/recipes/install_openmixer.sh" \
 		>"$work/recipe.log" 2>&1
 }
 fresh() {
-	rm -rf "$work/config" "$work/qualify.conf" "$work/systemctl.log" "$work/apt.log" "$work/apt-pin"
+	rm -rf "$work/config" "$work/qualify.conf" "$work/systemctl.log" "$work/apt.log" "$work/apt-pin" "$work/openmixer-testing.sources"
 	mkdir -p "$work/config"
 }
 
@@ -92,6 +93,23 @@ check "the channel's jackd2 (+omx) is not installed again" bash -c '! grep -qs "
 echo junk >"$work/apt-pin"
 recipe
 check "a changed apt pin is put back" cmp -s "$SYS/etc/apt/preferences.d/openmixer-jackd2" "$work/apt-pin"
+
+echo "== the testing source: openmixer-release brought to 1-11, the Enabled line left as it is"
+fresh
+RELEASE_VERSION=1-10 recipe
+check "openmixer-release 1-10 is upgraded (1-11 adds the testing source)" grep -q 'install openmixer-release$' "$work/apt.log"
+check "a release with no testing source yet is said, not hidden" grep -q "no OpenMixer testing source yet" "$work/recipe.log"
+fresh
+printf 'Enabled: no\nTypes: deb\n' >"$work/openmixer-testing.sources"
+recipe
+check "openmixer-release 1-11 is not installed again" bash -c '! grep -qs "install openmixer-release" "$1"' _ "$work/apt.log"
+check "a disabled testing source stays disabled" grep -qx 'Enabled: no' "$work/openmixer-testing.sources"
+check "a disabled testing source is not reported" bash -c '! grep -q "testing source" "$1"' _ "$work/recipe.log"
+fresh
+printf 'Enabled: yes\nTypes: deb\n' >"$work/openmixer-testing.sources"
+recipe
+check "an enabled testing source stays enabled" grep -qx 'Enabled: yes' "$work/openmixer-testing.sources"
+check "an enabled testing source is reported" grep -q "testing source is enabled" "$work/recipe.log"
 
 [ "$fails" = 0 ] && echo "install-openmixer: all checks passed" || echo "install-openmixer: $fails checks failed"
 exit "$fails"
