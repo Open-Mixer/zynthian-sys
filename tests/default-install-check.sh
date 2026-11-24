@@ -95,7 +95,7 @@ assert_defaults() {
 	printf 'lv2_path %s\nclap_path %s\n' "$work/empty" "$work/empty" >"$work/phd.conf"
 	check "plugin-qualify-sync takes qualify.conf" plugin-qualify-sync --system --config "$QUALIFY_CONF" \
 		--hostd-conf "$work/phd.conf" --pin-file "$work/p.pins" \
-		--state-file "$work/s.json" --descriptor-dir "$work/d" --hostd-port 0
+		--state-file "$work/s.json" --descriptor-dir "$work/d" --hostd-port 0 --host-class rpi5
 	check "qualify.conf: no qualification_dir (plugin-qualify 0.21.2 refuses the key; the records are the store's)" \
 		test -z "$(conf "$QUALIFY_CONF" qualification_dir)"
 
@@ -207,7 +207,9 @@ if [ "$(dpkg --print-architecture)" != arm64 ]; then
 else
   echo "   (arm64 machine: the refusal is not reachable here; the arm64 path is run below with the probes stubbed)"
 fi
-# The arm64 path, with the architecture probes stubbed, over one CLAP
+# The arm64 path, with the architecture probes stubbed, over one CLAP. The runner is no Pi: a Pi's host class comes
+# from its device tree (rpi5), the runner has none and plugin-qualify 0.21.2 refuses a run with no class, so the
+# stand-in Pi names it in its qualify.conf
 mkdir -p "$work/arm/bin" "$work/arm/clap" "$work/arm/lv2"
 printf '#!/bin/sh\necho arm64\n' >"$work/arm/bin/dpkg"
 printf '#!/bin/sh\necho aarch64\n' >"$work/arm/bin/uname"
@@ -216,7 +218,7 @@ printf 'processor\t: 0\nCPU implementer\t: 0x41\n' >"$work/arm/cpuinfo"
 cp /usr/lib/clap/omx-drive.clap "$work/arm/clap/"
 printf '%s\n' "clap_path $work/arm/clap" "lv2_path $work/arm/lv2" >"$work/arm/plugin-hostd.conf"
 printf '%s\n' "hostd_conf $work/arm/plugin-hostd.conf" "pin_file $work/arm/qualified.pins" \
-	"descriptor_dir $work/arm/descriptors" \
+	"descriptor_dir $work/arm/descriptors" "host_class rpi5" \
 	"state_file $work/arm/qualify-sync.json" >"$work/arm/qualify.conf"
 PATH="$work/arm/bin:$PATH" CPUINFO="$work/arm/cpuinfo" QUALIFY_CONF="$work/arm/qualify.conf" "$HOOK" >"$work/hook.log" 2>&1
 rc=$?
