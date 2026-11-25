@@ -12,6 +12,15 @@ This fork adds the OpenMixer apt repository. It brings plugin-hostd (it answers 
 
 The repository comes from the `openmixer-release` package, which installs the signing key in `/usr/share/keyrings` and links the apt source for the running Debian release (bookworm or trixie) in `/etc/apt/sources.list.d/openmixer.sources`. Packages are built for arm64 and amd64.
 
+From `openmixer-release` 1-11 it also installs the testing source, `/etc/apt/sources.list.d/openmixer-testing.sources`, disabled: the builds a release wave has proved on the Pi (Debian trixie arm64) before their release, as Fedora's updates-testing. `install_openmixer.sh` brings `openmixer-release` up to 1-11 and never changes that file's `Enabled` line. To take the testing builds, then to stop:
+
+```
+sudo sed -i 's/^Enabled: no$/Enabled: yes/' /etc/apt/sources.list.d/openmixer-testing.sources && sudo apt-get update && sudo apt-get upgrade
+sudo sed -i 's/^Enabled: yes$/Enabled: no/' /etc/apt/sources.list.d/openmixer-testing.sources && sudo apt-get update
+```
+
+No apt pin: enabled, the newer build wins; disabled, the next released version replaces a testing build at the next upgrade.
+
 The system setup scripts install `openmixer-release` with the other repositories and then run `scripts/recipes/install_openmixer.sh`. On a running Zynthian, run the recipe by hand:
 
 ```
