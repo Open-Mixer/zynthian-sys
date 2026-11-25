@@ -51,7 +51,9 @@ if [ -z "$tuna" ]; then
 	if ! curl -sSfL --retry 3 -o "$work/t.txz" "$url"; then echo "FAIL cannot fetch the tuner the x42 recipe installs: $url"; exit 1; fi
 	got=$(sha256sum "$work/t.txz" | cut -d' ' -f1)
 	if [ "$got" != "$TUNA_SUM" ]; then echo "FAIL $url has sha256 $got, not the $TUNA_SUM this check was written against"; exit 1; fi
-	tar -xJf "$work/t.txz" -C "$work" || { echo "FAIL cannot unpack $url"; exit 1; }
+	# python's tarfile reads xz itself: the CI container has no xz for tar -J
+	python3 -c 'import sys, tarfile; tarfile.open(sys.argv[1]).extractall(sys.argv[2], filter="data")' "$work/t.txz" "$work" \
+		|| { echo "FAIL cannot unpack $url"; exit 1; }
 	tuna=$work/tuna.lv2
 fi
 [ -d "$tuna" ] || { echo "FAIL no tuna.lv2 bundle at '$tuna'"; exit 1; }
