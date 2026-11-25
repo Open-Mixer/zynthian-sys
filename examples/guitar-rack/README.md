@@ -85,8 +85,8 @@ snapshot and put it in the user's bank, on the Zynthian:
 ```
 cd /zynthian/zynthian-sys/examples/guitar-rack       # or wherever this directory is copied
 mkdir -p "/zynthian/zynthian-my-data/snapshots/001-OpenMixer examples"
-python3 pedalboard-bench.py '003-Stomp pedalboard.zss' \
-    --stock "/zynthian/zynthian-my-data/snapshots/001-OpenMixer examples/003-Stomp pedalboard (jalv).zss"
+python3 stock-snapshot.py '003-Stomp pedalboard.zss' \
+    "/zynthian/zynthian-my-data/snapshots/001-OpenMixer examples/003-Stomp pedalboard (jalv).zss"
 ```
 
 It needs the guitaramp-suite bundle (`scripts/recipes/install_guitaramp-suite_prebuilt.sh`) and the x42 tuner
@@ -94,26 +94,45 @@ It needs the guitaramp-suite bundle (`scripts/recipes/install_guitaramp-suite_pr
 plugin list (Hex Chain Input Trim, Drive, Wah, Modulation, Delay, Reverb and x42 Instrument Tuner). Then Snapshots ->
 `001-OpenMixer examples` -> `003-Stomp pedalboard (jalv)`.
 
-### Measured: the same board under both hosts
+### Measured: the same board under three hosts
 
-`pedalboard-bench.py` runs the chain under jalv (one jalv per plugin, driven as Zynthian's JV engine drives it) and
-under plugin-hostd (under the device's settings, as the PH engine drives it). Each host gets its own JACK server
-(dummy driver, 48 kHz, realtime at Zynthian's priority 70), at a period of 128 and then 64. Zynthian's own JACK
-server and engines are not touched.
+The chain runs as plugin-hostd's house benchmark, scenario `pedal7` (`bench/` in Open-Mixer/plugin-hostd), every stomp
+on. The hosts are plugin-hostd (H2: one worker per plugin, `individual`; or a chain, `chain-add`), mod-host (H3: every
+plugin in one process) and jalv (H4: one process per plugin, as stock Zynthian runs them). The run used the house
+conditions: governor `performance`, Zynthian's `zynthian` and `jack2` stopped, and a private JACK server at priority 70.
+Each cell was repeated 3 times, with the hosts interleaved, and 10 s were measured per repeat. Two documents, checked
+together by `validate.sh` and `gate.sh` (12 cells, none unstable):
 
-```
-python3 pedalboard-bench.py '003-Stomp pedalboard.zss'      # about 45 minutes: 10 per row
-```
+- `alsa`: the Topping D10s (`--alsa hw:3 --periods 3`, as Zynthian's jackd), 48 kHz, 128 frames.
+- `dummy`: the dummy driver, 48 kHz, 128 and 64 frames. This is the twin of the ALSA run, and the only 64-frame figures.
 
-- **load s**: from the first plugin started to the last one answering, with its controllers set.
-- **DSP %**: JACK's load with every stomp on, the heaviest the board gets.
-- **xruns**: counted over the 10 minutes.
-- **RTL ms**: what the guitar hears through Zynthian's ALSA setting (3 periods: one in, two out) plus the chain's own
-  delay, measured with an impulse. The run fails unless the impulse rings on through the delay and reverb, which
-  proves every stomp is on. The converters' delay is not in it: add the interface's.
-- **stomp ms**: from the overdrive's `enabled` being set, as a bound footswitch sets it, to the first period whose
-  output carries the overdrive's harmonics. The MIDI hop before that is zynthian-ui's own and the same under both
-  hosts, so it is not counted.
+Raspberry Pi 5 (4 GB, Debian 13, kernel 6.18.50+rpt-rpi-2712), plugin-hostd 0.20.7, omx-clap-host 0.32.5, mod-host
+0.10.6-595-g6c1cdd8, jalv 1.6.9, JACK 1.9.22. Medians of 3, with [min-max] where the repeats differ.
+
+| driver | frames | host (mode) | DSP % avg / max | xruns in 10 s | load ms | processes | RSS / PSS MB |
+|---|---|---|---|---|---|---|---|
+| alsa | 128 | plugin-hostd (individual) | 11.91 / 12.07 | 0 | 754 | 8 | 833 / 118 |
+| alsa | 128 | plugin-hostd (chain-add) | 11.38 / 11.63 | 0 [0-3] | 1020 | 6 | 602 / 104 |
+| alsa | 128 | mod-host | 10.99 / 11.14 | 0 | 186 | 1 | 146 / 62 |
+| alsa | 128 | jalv | 11.47 / 11.53 | 0 | 2755 | 7 | 875 / 192 |
+| dummy | 128 | plugin-hostd (individual) | 11.61 / 11.69 | 0 | 729 | 8 | 833 / 117 |
+| dummy | 128 | plugin-hostd (chain-add) | 11.04 / 11.12 | 0 [0-5] | 997 | 6 | 602 / 103 |
+| dummy | 128 | mod-host | 10.75 / 10.89 | 0 | 170 | 1 | 146 / 62 |
+| dummy | 128 | jalv | 11.14 / 11.34 | 2 [0-7] | 2678 | 7 | 875 / 192 |
+| dummy | 64 | plugin-hostd (individual) | 19.61 / 19.68 | 7 [0-7] | 723 | 8 | 833 / 117 |
+| dummy | 64 | plugin-hostd (chain-add) | 18.64 / 18.82 | 0 [0-13] | 972 | 6 | 602 / 103 |
+| dummy | 64 | mod-host | 18.15 / 18.24 | 0 | 179 | 1 | 146 / 62 |
+| dummy | 64 | jalv | 18.63 / 18.81 | 11 [7-14] | 2754 | 7 | 875 / 192 |
+
+- **load ms** runs from the first plugin's add to the last reply, with its controls set. For jalv it runs until the
+  last client is in the graph.
+- **plugin-hostd `chain`** cannot hold this board. The tuner heads the chain and is mono, and it does not take the
+  stereo plugins (`resp -501`). `chain-add` puts four of them in workers of their own, so the board runs as 5 workers.
+- **The D10s at 64 frames:** no ALSA figure. Both times it was asked for 64 frames that day, JACK did not start and the
+  DAC stopped answering on USB (`err -71`) until it was re-plugged. Two times is not a proof of cause, but avoid 64
+  frames on this DAC.
+- **Not measured here:** the round trip through converters (this DAC has no input) and the time from a footswitch to
+  the sound (the MIDI hop is zynthian-ui's, the same under every host).
 
 ## Load it
 
