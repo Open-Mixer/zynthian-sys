@@ -7,9 +7,11 @@
 # -20 dBFS goes in and the level comes out; then one control the chain must obey (the lever) is moved and the level
 # must fall by 20 dB or more, so the tone is known to go through the plugins and not around them.
 #
-#   rack-proof.py SNAPSHOT --lever 'Hex Chain Amp:master=0' [--bundle DIR] [--conf FILE] [--port N]
+#   rack-proof.py SNAPSHOT --lever 'Hex Chain Amp:master=0' [--lever ...] [--bundle DIR ...] [--conf FILE] [--port N]
 #
-# Needs a Zynthian with OpenMixer (plugin-hostd, python3-jack-client, numpy) and guitaramp-suite.lv2. Zynthian's
+# Zynthian's mixer strip (MI) closing a chain is Zynthian's, not a plugin: it is left out. Every --lever is moved at
+# once. Needs a Zynthian with OpenMixer (plugin-hostd, python3-jack-client, numpy), guitaramp-suite.lv2 and, for a
+# chain with the tuner, tuna.lv2. Zynthian's
 # own JACK server and plugin-hostd are not touched. Exit 1 when a plugin is refused, the output is silent or the
 # lever moves nothing.
 #
@@ -37,15 +39,22 @@ TONE = 0.1  # -20 dBFS
 MEASURE_S = 2.0
 
 
-def uris_of(bundle):
-    """name -> URI of each plugin in the bundle's .ttl files."""
+BUNDLES = ["/zynthian/zynthian-plugins/lv2/guitaramp-suite.lv2", "/usr/local/lib/lv2/tuna.lv2"]
+
+
+def uris_of(*bundles):
+    """name -> URI of each plugin in the bundles' .ttl files; a subject is <uri> or prefix:name."""
     out = {}
-    for ttl in glob.glob(os.path.join(bundle, "*.ttl")):
-        text = open(ttl, encoding="utf-8").read()
-        for uri, body in re.findall(r"<([^>]+)>\s+a\s+lv2:Plugin\b(.*?)(?=\n<|\Z)", text, re.S):
-            name = re.search(r'doap:name\s+"([^"]+)"', body)
-            if name:
-                out[name.group(1)] = uri
+    for bundle in bundles:
+        for ttl in glob.glob(os.path.join(bundle, "*.ttl")):
+            # long literals may hold unindented lines: out first; then one statement per unindented line
+            text = re.sub(r'""".*?"""', '""', open(ttl, encoding="utf-8").read(), flags=re.S)
+            prefixes = dict(re.findall(r"@prefix\s+([\w-]*):\s*<([^>]*)>", text))
+            for body in re.split(r"\n(?=\S)", text):
+                m = re.match(r"(?:<([^>]+)>|([\w-]*):(\S+))\s+a\s+lv2:Plugin\b", body)
+                name = re.search(r'doap:name\s+"([^"]+)"', body)
+                if m and name:
+                    out[name.group(1)] = m.group(1) or prefixes.get(m.group(2), "") + m.group(3)
     return out
 
 
@@ -57,6 +66,8 @@ def chain_of(snapshot):
             out = []
             for slot in chain["slots"]:
                 for proc_id, code in slot.items():
+                    if "/" not in code:
+                        continue  # Zynthian's own mixer strip (MI)
                     ctrls = procs.get(proc_id, {}).get("controllers", {})
                     out.append((proc_id, code.split("/", 1)[1], {k: v["value"] for k, v in ctrls.items()}))
             return out
@@ -114,8 +125,9 @@ def status(reply):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("snapshot")
-    ap.add_argument("--lever", required=True, help="'Plugin Name:symbol=value': a control that must silence the chain")
-    ap.add_argument("--bundle", default="/zynthian/zynthian-plugins/lv2/guitaramp-suite.lv2")
+    ap.add_argument("--lever", required=True, action="append",
+                    help="'Plugin Name:symbol=value': controls that, moved together, must silence the chain")
+    ap.add_argument("--bundle", action="append", help="an LV2 bundle the chain's plugins are read from (repeatable)")
     ap.add_argument("--conf", default="/zynthian/config/plugin-hostd.conf")
     ap.add_argument("--port", type=int, default=5590)
     args = ap.parse_args()
@@ -123,9 +135,12 @@ def main():
     import jack
     import numpy as np
 
-    lever_name, lever_rest = args.lever.split(":", 1)
-    lever_sym, lever_val = lever_rest.split("=", 1)
-    uris = uris_of(args.bundle)
+    levers = []
+    for lever in args.lever:
+        name, rest = lever.split(":", 1)
+        levers.append((name,) + tuple(rest.split("=", 1)))
+    bundles = args.bundle or BUNDLES
+    uris = uris_of(*bundles)
     chain = chain_of(json.load(open(args.snapshot, encoding="utf-8")))
     if not chain:
         print(f"FAIL {args.snapshot} has no chain with processors")
@@ -160,7 +175,7 @@ def main():
             inst = FIRST_INSTANCE + n
             uri = uris.get(name)
             if not uri:
-                print(f"FAIL {name}: not in {args.bundle}")
+                print(f"FAIL {name}: not in {', '.join(bundles)}")
                 return 1
             t0 = time.monotonic()
             reply = d.call(f"add {uri} {inst}", timeout=120)
@@ -232,12 +247,14 @@ def main():
         if max(on) < -80 or not all(np.isfinite(on)):
             print("FAIL the rack's output is silent")
             return 1
-        lever_inst = next((i for i, n in instances if n == lever_name), None)
-        r = d.call(f"param_set {lever_inst} {lever_sym} {lever_val}")
+        r = []
+        for name, sym, val in levers:
+            inst = next((i for i, n in instances if n == name), None)
+            r.append(d.call(f"param_set {inst} {sym} {val}"))
         off = level()
         drop = max(on) - max(off)
-        print(f"{'ok  ' if drop >= 20 else 'FAIL'} lever {args.lever}: out L {off[0]:.1f}, R {off[1]:.1f} dBFS, "
-              f"{drop:.1f} dB down ({r})")
+        print(f"{'ok  ' if drop >= 20 else 'FAIL'} lever {' + '.join(args.lever)}: out L {off[0]:.1f}, "
+              f"R {off[1]:.1f} dBFS, {drop:.1f} dB down ({'; '.join(r)})")
         client.deactivate()
         client.close()
         return 0 if drop >= 20 else 1
