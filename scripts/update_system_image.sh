@@ -106,7 +106,8 @@ $ZYNTHIAN_RECIPE_DIR/install_openmixer.sh --upgrade
 cp "$ZYNTHIAN_SYS_DIR/config/default_jalv_plugins.json" "/zynthian/config/jalv/plugins.json"
 
 # Copy default snapshots
-cp -a $ZYNTHIAN_DATA_DIR/snapshots/* $ZYNTHIAN_MY_DATA_DIR/snapshots/000
+mkdir -p $ZYNTHIAN_MY_DATA_DIR/snapshots/000-Factory
+cp -a $ZYNTHIAN_DATA_DIR/snapshots/* $ZYNTHIAN_MY_DATA_DIR/snapshots/000-Factory
 
 # Copy MIDI examples
 cp -a $ZYNTHIAN_DATA_DIR/mid/*.mid $ZYNTHIAN_MY_DATA_DIR/capture
