@@ -63,6 +63,14 @@ On this fork OpenMixer is part of the default install; in the series offered ups
 
 All of it is done by `scripts/recipes/install_openmixer.sh`, which the setup scripts and `update_zynthian_sys.sh` run. Each step is done once and listed in `/zynthian/config/openmixer-defaults`, so a setting changed by hand afterwards stays. It starts and restarts nothing: its report says what changed and what applies at the next start of mod-host, mod-ui or zynthian. `tests/default-install-check.sh` checks all of it in a container.
 
+Because a setting once written stays, a device set up before plugin-hostd-protocol 0.7.0 can keep a `qualification_dir` line in `/zynthian/config/plugin-hostd.conf`. plugin-hostd 0.21.1 and plugin-qualify 0.21.2 refuse that key, so the UI's plugin-hostd engine does not start (its log, `/run/plugin-hostd/plugin-hostd-5570.log`, says `bad setting 'qualification_dir'`) and `plugin-qualify-sync.service` fails. The update leaves the line in place; remove it by hand, as root:
+
+```
+sed -i '/^qualification_dir[[:space:]]/d' /zynthian/config/plugin-hostd.conf
+```
+
+The series offered upstream (`upstream-series-t20261126b/01..04`: mod-ui on Python 3.13, plugin-hostd as a mod-host backend and as the UI's engine, then the OpenMixer packages and the plugin directories, the last two held as OpenMixer's own) writes the stock values in `scripts/zynthian_envars.sh`: `ZYNTHIAN_MODHOST_BACKEND="jack_load"` and `ZYNTHIAN_PLUGIN_ENGINE="jalv"`. This fork writes `plugin-hostd` for both. None of the series is posted upstream yet.
+
 To go back, as root:
 
 ```
