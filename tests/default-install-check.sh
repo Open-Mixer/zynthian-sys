@@ -53,7 +53,7 @@ state_sum() {
 	sha256sum "$ENVARS" "$PHD_CONF" "$QUALIFY_CONF" "$CONFIG_DIR/openmixer-defaults" \
 		/etc/tmpfiles.d/omx-qualified-pins.conf /var/lib/omx/qualified.pins \
 		/etc/systemd/system/mod-host.service /etc/systemd/system/plugin-qualify-sync.*.d/* 2>&1
-	for u in plugin-qualify-sync.timer plugin-qualify-sync.path omx-modgui-sync; do
+	for u in plugin-qualify-sync.timer plugin-qualify-sync.path omx-panel-sync; do
 		echo "$u $(systemctl is-enabled "$u" 2>&1)"
 	done
 }
@@ -79,11 +79,13 @@ assert_defaults() {
 
 	check "plugin-qualify-sync.timer is enabled" test "$(systemctl is-enabled plugin-qualify-sync.timer)" = enabled
 	check "plugin-qualify-sync.path is enabled" test "$(systemctl is-enabled plugin-qualify-sync.path)" = enabled
-	check "omx-modgui-sync is enabled" test "$(systemctl is-enabled omx-modgui-sync)" = enabled
+	check "omx-panel-sync is enabled" test "$(systemctl is-enabled omx-panel-sync)" = enabled
 	check "the path unit also watches Pianoteq and the user's plugins" \
 		grep -qx "PathChanged=$PIANOTEQ_DIR" /etc/systemd/system/plugin-qualify-sync.path.d/zynthian.conf
-	check "a sync run starts the MOD GUI sync" \
-		grep -q 'start omx-modgui-sync.service' /etc/systemd/system/plugin-qualify-sync.service.d/zynthian.conf
+	check "a sync run starts omx-panel's sync pass (its own drop-in)" \
+		grep -q 'start --no-block omx-panel-sync.service' /usr/lib/systemd/system/plugin-qualify-sync.service.d/omx-panel-sync.conf
+	check "omx-panel-sync looks on Zynthian's LV2_PATH" \
+		grep -q "^Environment=LV2_PATH=/" /etc/systemd/system/omx-panel-sync.service.d/zynthian.conf
 
 	# plugin-hostd.conf: Zynthian's directories (sbin/omx-search-paths.sh); qualify.conf names it
 	local lv2_path
@@ -175,7 +177,7 @@ reset() {
 	cp "$work/qualify.conf.package" "$QUALIFY_CONF"
 	rm -rf /etc/systemd/system/plugin-qualify-sync.path.d /etc/systemd/system/plugin-qualify-sync.service.d \
 		/etc/tmpfiles.d/omx-qualified-pins.conf /var/lib/omx/qualified.pins
-	systemctl disable plugin-qualify-sync.timer plugin-qualify-sync.path omx-modgui-sync >/dev/null 2>&1
+	systemctl disable plugin-qualify-sync.timer plugin-qualify-sync.path omx-panel-sync >/dev/null 2>&1
 }
 
 recipe() {
