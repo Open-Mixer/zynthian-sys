@@ -26,6 +26,9 @@
 #   sbin/omx-modgui-look.sh after a package update (omx-modgui-sync), and now.
 # - omx-zynthian-gui, the GUIs of Zynthian's default plugins staged from the
 #   base by scripts/omx-zynthian-gui-build.sh, installed when it changes.
+# - the example snapshots (examples/*/NNN-*.zss: a guitar rack run by
+#   plugin-hostd) into the snapshot bank "001-OpenMixer examples", once; a
+#   snapshot of that name already there stays.
 #
 # Each of these is done once: the steps done are listed in
 # $ZYNTHIAN_CONFIG_DIR/openmixer-defaults. A config that exists is not changed.
@@ -369,6 +372,31 @@ else
 	note "omx-zynthian-gui not built: $(echo "$gui_log" | tail -n 1)"
 fi
 rm -rf "$gui_out"
+
+# The examples: each examples/*/NNN-*.zss copied once into the snapshot bank
+# "001-OpenMixer examples" of the user's data, where Zynthian's snapshot menu
+# lists it. A snapshot of that name already in the bank stays: it may be the
+# user's edit. What each example needs is in its README.
+EXAMPLES_BANK="${ZYNTHIAN_MY_DATA_DIR:-/zynthian/zynthian-my-data}/snapshots/001-OpenMixer examples"
+if ! is_done examples; then
+	examples_failed=0
+	if mkdir -p "$EXAMPLES_BANK"; then
+		for f in "$ZYNTHIAN_SYS_DIR"/examples/*/[0-9][0-9][0-9]-*.zss; do
+			[ -f "$f" ] || continue
+			target="$EXAMPLES_BANK/$(basename "$f")"
+			if [ -e "$target" ]; then
+				note "example $(basename "$f") kept: one of that name is in $EXAMPLES_BANK"
+			elif cp "$f" "$target"; then
+				change "example snapshot $(basename "$f") in $EXAMPLES_BANK"
+			else
+				note "could not copy the example $f"; examples_failed=1
+			fi
+		done
+	else
+		note "could not make the snapshot bank $EXAMPLES_BANK"; examples_failed=1
+	fi
+	[ "$examples_failed" = 0 ] && mark_done examples
+fi
 
 #------------------------------------------------------------------------------
 # Report

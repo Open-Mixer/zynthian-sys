@@ -1,0 +1,236 @@
+{
+ "schema_version": 5,
+ "chains": {
+  "0": {
+   "title": "Main",
+   "midi_chan": null,
+   "midi_thru": false,
+   "audio_thru": true,
+   "zmop_index": null,
+   "cc_route": [],
+   "slots": [],
+   "zctrls": {}
+  },
+  "1": {
+   "title": "Guitar rack",
+   "midi_chan": null,
+   "midi_thru": false,
+   "audio_thru": false,
+   "zmop_index": null,
+   "cc_route": [],
+   "slots": [
+    {
+     "1": "PH/Hex Chain Input Trim"
+    },
+    {
+     "2": "PH/Hex Chain Drive"
+    },
+    {
+     "3": "PH/Hex Chain Amp"
+    },
+    {
+     "4": "PH/Hex Chain Cabinet"
+    },
+    {
+     "5": "PH/Hex Chain Modulation"
+    },
+    {
+     "6": "PH/Hex Chain Delay"
+    },
+    {
+     "7": "PH/Hex Chain Reverb"
+    }
+   ],
+   "zctrls": {}
+  }
+ },
+ "zs3": {
+  "zs3-0": {
+   "title": "Last state",
+   "active_chain": 1,
+   "chains": {
+    "1": {
+     "audio_in": [
+      1
+     ],
+     "audio_out": [
+      "mixer"
+     ]
+    }
+   },
+   "processors": {
+    "1": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {
+      "gain_db": {
+       "value": 0.0
+      },
+      "hum_filter": {
+       "value": 1.0
+      }
+     },
+     "current_screen_index": 0
+    },
+    "2": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {
+      "drive": {
+       "value": 0.45
+      },
+      "tone": {
+       "value": 0.55
+      },
+      "level": {
+       "value": 0.5
+      },
+      "mix": {
+       "value": 1.0
+      }
+     },
+     "current_screen_index": 0
+    },
+    "3": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {
+      "gain": {
+       "value": 0.55
+      },
+      "bass": {
+       "value": 0.5
+      },
+      "mid": {
+       "value": 0.6
+      },
+      "treble": {
+       "value": 0.55
+      },
+      "presence": {
+       "value": 0.5
+      },
+      "master": {
+       "value": 0.25
+      }
+     },
+     "current_screen_index": 0
+    },
+    "4": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {
+      "low_cut_hz": {
+       "value": 80.0
+      },
+      "high_cut_hz": {
+       "value": 7500.0
+      },
+      "mix": {
+       "value": 1.0
+      }
+     },
+     "current_screen_index": 0
+    },
+    "5": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {
+      "rate": {
+       "value": 0.3
+      },
+      "depth": {
+       "value": 0.4
+      },
+      "mix": {
+       "value": 0.25
+      }
+     },
+     "current_screen_index": 0
+    },
+    "6": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {
+      "time_ms": {
+       "value": 380.0
+      },
+      "feedback": {
+       "value": 0.3
+      },
+      "mix": {
+       "value": 0.2
+      }
+     },
+     "current_screen_index": 0
+    },
+    "7": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {
+      "pre_delay_ms": {
+       "value": 15.0
+      },
+      "decay_time": {
+       "value": 1.8
+      },
+      "mix": {
+       "value": 0.2
+      }
+     },
+     "current_screen_index": 0
+    }
+   }
+  }
+ },
+ "last_zs3_id": "zs3-0"
+}

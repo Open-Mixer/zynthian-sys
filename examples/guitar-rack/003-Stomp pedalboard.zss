@@ -1,0 +1,314 @@
+{
+ "schema_version": 5,
+ "chains": {
+  "0": {
+   "title": "Main",
+   "midi_chan": null,
+   "midi_thru": false,
+   "audio_thru": true,
+   "zmop_index": null,
+   "cc_route": [],
+   "slots": [],
+   "zctrls": {}
+  },
+  "1": {
+   "title": "Pedalboard",
+   "midi_chan": null,
+   "midi_thru": false,
+   "audio_thru": false,
+   "zmop_index": null,
+   "cc_route": [],
+   "slots": [
+    {
+     "1": "PH/x42 Instrument Tuner"
+    },
+    {
+     "2": "PH/Hex Chain Input Trim"
+    },
+    {
+     "3": "PH/Hex Chain Drive"
+    },
+    {
+     "4": "PH/Hex Chain Wah"
+    },
+    {
+     "5": "PH/Hex Chain Modulation"
+    },
+    {
+     "6": "PH/Hex Chain Delay"
+    },
+    {
+     "7": "PH/Hex Chain Reverb"
+    },
+    {
+     "8": "MI"
+    }
+   ],
+   "zctrls": {}
+  }
+ },
+ "zs3": {
+  "zs3-0": {
+   "title": "Last state",
+   "active_chain": 1,
+   "chains": {
+    "1": {
+     "midi_learn": {
+      "65287": [
+       [
+        8,
+        "level"
+       ]
+      ],
+      "65291": [
+       [
+        4,
+        "freq"
+       ]
+      ],
+      "65301": [
+       [
+        3,
+        "enabled"
+       ]
+      ],
+      "65302": [
+       [
+        4,
+        "enabled"
+       ]
+      ],
+      "65303": [
+       [
+        5,
+        "enabled"
+       ]
+      ],
+      "65304": [
+       [
+        6,
+        "enabled"
+       ]
+      ],
+      "65305": [
+       [
+        7,
+        "enabled"
+       ]
+      ],
+      "65306": [
+       [
+        8,
+        "mute"
+       ]
+      ]
+     },
+     "audio_in": [
+      1
+     ],
+     "audio_out": [
+      "mixer"
+     ]
+    }
+   },
+   "processors": {
+    "1": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {},
+     "current_screen_index": 0
+    },
+    "2": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {
+      "gain_db": {
+       "value": 0.0
+      },
+      "hum_filter": {
+       "value": 1.0
+      },
+      "mains": {
+       "value": 1
+      }
+     },
+     "current_screen_index": 0
+    },
+    "3": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {
+      "drive": {
+       "value": 0.55
+      },
+      "tone": {
+       "value": 0.5
+      },
+      "level": {
+       "value": 0.5
+      },
+      "mix": {
+       "value": 1.0
+      },
+      "enabled": {
+       "value": 0.0
+      }
+     },
+     "current_screen_index": 0
+    },
+    "4": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {
+      "wah_type": {
+       "value": 1
+      },
+      "freq": {
+       "value": 0.4
+      },
+      "depth": {
+       "value": 0.7
+      },
+      "q": {
+       "value": 0.6
+      },
+      "mix": {
+       "value": 0.8
+      },
+      "enabled": {
+       "value": 0.0
+      }
+     },
+     "current_screen_index": 0
+    },
+    "5": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {
+      "mod_type": {
+       "value": 2
+      },
+      "rate": {
+       "value": 0.35
+      },
+      "depth": {
+       "value": 0.6
+      },
+      "mix": {
+       "value": 0.5
+      },
+      "enabled": {
+       "value": 0.0
+      }
+     },
+     "current_screen_index": 0
+    },
+    "6": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {
+      "time_ms": {
+       "value": 380.0
+      },
+      "feedback": {
+       "value": 0.3
+      },
+      "mix": {
+       "value": 0.2
+      },
+      "enabled": {
+       "value": 0.0
+      }
+     },
+     "current_screen_index": 0
+    },
+    "7": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {
+      "decay_time": {
+       "value": 1.8
+      },
+      "mix": {
+       "value": 0.2
+      },
+      "enabled": {
+       "value": 0.0
+      }
+     },
+     "current_screen_index": 0
+    },
+    "8": {
+     "bank_info": [
+      "factory",
+      null,
+      "Factory",
+      null
+     ],
+     "bank_subdir_info": null,
+     "preset_info": null,
+     "preset_subdir_info": null,
+     "controllers": {
+      "level": {
+       "value": 0.8
+      },
+      "mute": {
+       "value": 0
+      }
+     },
+     "current_screen_index": 0
+    }
+   }
+  }
+ },
+ "last_zs3_id": "zs3-0"
+}

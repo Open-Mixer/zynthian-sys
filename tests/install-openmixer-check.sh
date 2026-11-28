@@ -40,13 +40,13 @@ stub systemctl 'echo "$*" >>"$SYSTEMCTL_LOG"; case "$1" in is-enabled) echo disa
 recipe() {
 	PATH="$work/bin:$PATH" SYSTEMCTL_LOG="$work/systemctl.log" APT_LOG="$work/apt.log" APT_PIN="$work/apt-pin" \
 		TESTING_SOURCE="$work/openmixer-testing.sources" \
-		ZYNTHIAN_SYS_DIR=$SYS ZYNTHIAN_CONFIG_DIR=$work/config \
+		ZYNTHIAN_SYS_DIR=$SYS ZYNTHIAN_CONFIG_DIR=$work/config ZYNTHIAN_MY_DATA_DIR=$work/my-data \
 		QUALIFY_CONF=$work/qualify.conf OMX_PANEL_BASE=${OMX_PANEL_BASE:-$work/no-base} \
 		"$SYS/scripts/recipes/install_openmixer.sh" >"$work/recipe.log" 2>&1
 	echo $? >"$work/recipe.rc"
 }
 fresh() {
-	rm -rf "$work/config" "$work/qualify.conf" "$work/systemctl.log" "$work/apt.log" "$work/apt-pin" "$work/openmixer-testing.sources"
+	rm -rf "$work/config" "$work/my-data" "$work/qualify.conf" "$work/systemctl.log" "$work/apt.log" "$work/apt-pin" "$work/openmixer-testing.sources"
 	mkdir -p "$work/config"
 }
 
@@ -140,6 +140,24 @@ printf 'Enabled: yes\nTypes: deb\n' >"$work/openmixer-testing.sources"
 recipe
 check "an enabled testing source stays enabled" grep -qx 'Enabled: yes' "$work/openmixer-testing.sources"
 check "an enabled testing source is reported" grep -q "testing source is enabled" "$work/recipe.log"
+
+echo "== the example snapshots"
+fresh
+recipe
+bank="$work/my-data/snapshots/001-OpenMixer examples"
+n=0
+for f in "$SYS"/examples/*/[0-9][0-9][0-9]-*.zss; do
+	n=$((n + 1))
+	check "the example $(basename "$f") is in the snapshot bank" cmp -s "$f" "$bank/$(basename "$f")"
+done
+check "there is an example to copy" test "$n" -gt 0
+check "the examples step is recorded" grep -qx examples "$work/config/openmixer-defaults"
+first=$(ls "$SYS"/examples/*/[0-9][0-9][0-9]-*.zss | head -n 1)
+echo '{"edited": true}' >"$bank/$(basename "$first")"
+sed -i '/^examples$/d' "$work/config/openmixer-defaults"
+recipe
+check "an example of that name already in the bank stays (the user's edit)" grep -q '"edited"' "$bank/$(basename "$first")"
+check "and the report says it was kept" grep -q "kept: one of that name is in" "$work/recipe.log"
 
 [ "$fails" = 0 ] && echo "install-openmixer: all checks passed" || echo "install-openmixer: $fails checks failed"
 exit "$fails"
