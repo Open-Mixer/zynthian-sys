@@ -306,7 +306,7 @@ if ! is_done qualify-sync && is_installed plugin-qualify; then
 	[ "$failed" = 0 ] && mark_done qualify-sync
 fi
 
-# The UI look: OpenMixer vintage (config/ui-looks/openmixer-vintage.sh, the
+# The UI look: OpenMixer vintage (config/ui-looks/vintage.sh, generated from omx-panel's skin, the
 # console's colours and its font Inter), set once; a colour chosen by hand
 # stays. fonts-inter carries the font. The web configurator's UI page changes it.
 look_changed=0
@@ -321,10 +321,10 @@ if ! is_done ui-look && [ -f "$ENVARS" ]; then
 	while IFS= read -r line; do
 		case "$line" in
 		kept\ *) note "UI look: $line" ;;
-		"look openmixer-vintage: 0 "*) ;;
+		"look vintage: 0 "*) ;;
 		look\ *) change "UI $line"; look_changed=1 ;;
 		esac
-	done < <(ZYNTHIAN_SYS_DIR="$ZYNTHIAN_SYS_DIR" "$ZYNTHIAN_SYS_DIR/sbin/omx-ui-look.sh" --keep-changed openmixer-vintage "$ENVARS")
+	done < <(ZYNTHIAN_SYS_DIR="$ZYNTHIAN_SYS_DIR" "$ZYNTHIAN_SYS_DIR/sbin/omx-ui-look.sh" --keep-changed vintage "$ENVARS")
 	mark_done ui-look
 fi
 

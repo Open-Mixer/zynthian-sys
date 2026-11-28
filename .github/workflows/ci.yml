@@ -53,7 +53,7 @@ jobs:
         run: tests/omx-search-paths-check.sh
       - name: The boot cmdline enables the memory cgroup controller
         run: tests/boot-cmdline-check.sh
-      - name: The UI looks set the sixteen colours and the font; stock is zynthian-ui's own; vintage is pinned
+      - name: The UI looks are generated and pinned; stock is zynthian-ui's own; omx-ui-look.sh writes a look whole
         run: |
           curl -fsSL https://raw.githubusercontent.com/Open-Mixer/zynthian-ui/openmixer/zyngui/zynthian_gui_config.py > /tmp/zynthian_gui_config.py
           ZYNTHIAN_GUI_CONFIG=/tmp/zynthian_gui_config.py tests/ui-looks-check.sh
@@ -120,6 +120,8 @@ jobs:
           apt-get update -qq
           apt-get install -y -qq --no-install-recommends openmixer-release $(sed 's/#.*//' config/openmixer-packages | xargs)
           dpkg-query -W openmixer-release $(sed 's/#.*//' config/openmixer-packages | xargs)
+      - name: The UI looks are what the installed omx-panel generates from its skins (a hand edit is red)
+        run: tests/ui-looks-generated-check.sh
       - name: After a new image's setup, OpenMixer is the default; running the update again changes nothing
         run: |
           mkdir -p /zynthian

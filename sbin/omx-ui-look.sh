@@ -1,13 +1,14 @@
 #!/bin/bash
 #******************************************************************************
-# Set Zynthian's UI look: the ZYNTHIAN_UI_COLOR_* and the font of one file in
-# config/ui-looks, written into zynthian_envars.sh. The other settings stay as
-# they are. The UI reads them when it starts.
+# Set Zynthian's UI look: every key of one file in config/ui-looks (the
+# colours, the font, the drawing and its geometry; the files are generated
+# from omx-panel's skins, docs/ui-looks.md), written into zynthian_envars.sh.
+# The other settings stay as they are. The UI reads them when it starts.
 #
 #   omx-ui-look.sh [--keep-changed] <look> [zynthian_envars.sh]
 #
 # <look> is a file name in config/ui-looks without .sh (stock,
-# openmixer-vintage). --keep-changed sets a key only where it is unset or still
+# vintage). --keep-changed sets a key only where it is unset or still
 # holds the stock value, and names each key it leaves: the recipe uses it so
 # colours chosen by hand survive. An unknown look is refused by name, exit 2.
 #******************************************************************************
