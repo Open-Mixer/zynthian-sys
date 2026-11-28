@@ -47,3 +47,8 @@ Two checks hold them:
    (zynthian-webconf `lib/ui_looks.py`, `LOOK_KEYS`): the grid's colours, `ZYNTHIAN_UI_LOOK`, the drawing's colours
    and its geometry are not written by it. Until it carries every key of the file, a look is applied whole by
    `omx-ui-look.sh`.
+
+   A look that gains tokens (the 42 geometry tokens of 2026-11-28) is not completed on a device that picked it
+   before: the owner ruled out look completion (zynthian-sys 219ba30). Such a device is re-picked once
+   (`omx-ui-look.sh vintage`); until then zynthian-ui names every token the preset lacks in its log and draws the
+   controllers stock.

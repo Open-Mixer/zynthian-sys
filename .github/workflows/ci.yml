@@ -53,7 +53,7 @@ jobs:
         run: tests/omx-search-paths-check.sh
       - name: The boot cmdline enables the memory cgroup controller
         run: tests/boot-cmdline-check.sh
-      - name: The UI looks set the sixteen colours and the font; stock is zynthian-ui's own; vintage is pinned
+      - name: The UI looks are generated and pinned; stock is zynthian-ui's own; omx-ui-look.sh writes a look whole
         run: |
           curl -fsSL https://raw.githubusercontent.com/Open-Mixer/zynthian-ui/openmixer/zyngui/zynthian_gui_config.py > /tmp/zynthian_gui_config.py
           ZYNTHIAN_GUI_CONFIG=/tmp/zynthian_gui_config.py tests/ui-looks-check.sh
