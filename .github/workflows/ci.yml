@@ -16,6 +16,16 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'pull_request_target' }}
 
+# THE CHANNEL LEVELS (owner 2026-11-28: run in parallel with the release, testing the devel and staging packages; an
+# error found there is contributed to the package). On a pull request the jobs that install packages add, through the
+# shared add-openmixer action the Open-Mixer repositories use, staging and the devel wave the repository variables name
+# (OMX_DEVEL_CHANNEL, devel/<wave>, and its base waves OMX_DEVEL_BASE) above the real channel. A push to openmixer, the
+# line a Zynthian updates from, reads the real channel alone: the production arm, what a device installs.
+env:
+  OMX_LEVELS: ${{ github.event_name == 'pull_request' && 'devel' || 'production' }}
+  OMX_DEVEL_CHANNEL: ${{ github.event_name == 'pull_request' && vars.OMX_DEVEL_CHANNEL || '' }}
+  OMX_DEVEL_BASE: ${{ github.event_name == 'pull_request' && vars.OMX_DEVEL_BASE || '' }}
+
 jobs:
   checks:
     name: release tags and omx-fetch-release
@@ -71,6 +81,13 @@ jobs:
       - name: Install the tools
         run: apt-get update -qq && apt-get install -y --no-install-recommends gnupg gpgv curl ca-certificates
       - uses: actions/checkout@v4
+      - name: On a pull request, staging and the devel wave above the real channel
+        if: env.OMX_LEVELS == 'devel'
+        uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          staging: 'true'
+          devel-channel: ${{ env.OMX_DEVEL_CHANNEL }}
+          devel-base: ${{ env.OMX_DEVEL_BASE }}
       - name: The recipe's packages install from the channel and carry plugin-hostd's Python client
         run: tests/omx-packages-check.sh
 
@@ -85,12 +102,22 @@ jobs:
       - name: Install the tools
         run: apt-get update -qq && apt-get install -y -qq --no-install-recommends gnupg gpgv curl ca-certificates systemd python3 procps iproute2 fontconfig
       - uses: actions/checkout@v4
-      - name: The channel and the recipe's packages are installed
+      - name: The channel is added
         run: |
           scripts/omx-fetch-release.sh /tmp/openmixer-release.deb
           apt-get install -y -qq --no-install-recommends /tmp/openmixer-release.deb
+      - name: On a pull request, staging and the devel wave above the real channel
+        if: env.OMX_LEVELS == 'devel'
+        uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          staging: 'true'
+          devel-channel: ${{ env.OMX_DEVEL_CHANNEL }}
+          devel-base: ${{ env.OMX_DEVEL_BASE }}
+      - name: The recipe's packages are installed
+        run: |
           apt-get update -qq
           apt-get install -y -qq --no-install-recommends openmixer-release $(sed 's/#.*//' config/openmixer-packages | xargs)
+          dpkg-query -W openmixer-release $(sed 's/#.*//' config/openmixer-packages | xargs)
       - name: After a new image's setup, OpenMixer is the default; running the update again changes nothing
         run: |
           mkdir -p /zynthian
