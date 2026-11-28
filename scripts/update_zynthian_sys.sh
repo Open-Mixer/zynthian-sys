@@ -611,8 +611,7 @@ sed -i -e "s/#ZYNTHIAN_DIR#/$ZYNTHIAN_DIR_ESC/g" /etc/systemd/system/filebrowser
 sed -i -e "s/#ZYNTHIAN_SYS_DIR#/$ZYNTHIAN_SYS_DIR_ESC/g" /etc/systemd/system/filebrowser.service
 sed -i -e "s/#ZYNTHIAN_SW_DIR#/$ZYNTHIAN_SW_DIR_ESC/g" /etc/systemd/system/filebrowser.service
 
-sed -i -e "s/#LV2_PATH#/$LV2_PATH_ESC/g" /etc/systemd/system/omx-modgui-sync.service.d/zynthian.conf
-sed -i -e "s/#LV2_PATH#/$LV2_PATH_ESC/g" /etc/systemd/system/omx-complement-sync.service.d/zynthian.conf
+sed -i -e "s/#LV2_PATH#/$LV2_PATH_ESC/g" /etc/systemd/system/omx-panel-sync.service.d/zynthian.conf
 sed -i -e "s/#ZYNTHIAN_SYS_DIR#/$ZYNTHIAN_SYS_DIR_ESC/g" /etc/systemd/system/plugin-qualify-sync.service.d/zynthian.conf
 
 # Reload Systemd scripts
@@ -626,10 +625,11 @@ if [ "$(systemctl is-enabled usb-gadget)" != "enabled" ]; then
 	echo "Enabling USB gadget ..."
 	systemctl enable usb-gadget
 fi
-# the MOD GUI sync is omx-panel's unit (installed, never enabled by the package): this image turns it on
-if [ "$(systemctl is-enabled omx-modgui-sync)" != "enabled" ]; then
-	echo "Enabling the MOD GUI sync ..."
-	systemctl enable omx-modgui-sync
+# omx-panel's one sync pass (omx-panel-sync.service, from omx-panel 0.17: it replaced omx-modgui-sync.service and
+# omx-complement-sync.service). The package enables it; an image where it was turned off has it on again
+if [ "$(systemctl is-enabled omx-panel-sync)" != "enabled" ]; then
+	echo "Enabling the omx-panel sync ..."
+	systemctl enable omx-panel-sync
 fi
 
 # OpenMixer as the default, once: packages, plugin-hostd as mod-host and UI
