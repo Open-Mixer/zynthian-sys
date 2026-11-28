@@ -120,6 +120,8 @@ jobs:
           apt-get update -qq
           apt-get install -y -qq --no-install-recommends openmixer-release $(sed 's/#.*//' config/openmixer-packages | xargs)
           dpkg-query -W openmixer-release $(sed 's/#.*//' config/openmixer-packages | xargs)
+      - name: The UI looks are what the installed omx-panel generates from its skins (a hand edit is red)
+        run: tests/ui-looks-generated-check.sh
       - name: After a new image's setup, OpenMixer is the default; running the update again changes nothing
         run: |
           mkdir -p /zynthian
